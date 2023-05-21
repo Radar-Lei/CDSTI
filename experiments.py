@@ -5,7 +5,7 @@ import datetime
 import yaml
 import json
 
-from main_model import CDSTI
+from CDSTI_main import CDSTI
 from dataset_dataloader import get_dataloader
 from utils import train, evaluate
 

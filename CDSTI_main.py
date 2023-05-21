@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from diff_models import diff_CDI
+from BiTrans_predictor import diff_CDI
 
 class CDSTI_base(nn.Module):
     def __init__(self, spatial_dim, config, device):
