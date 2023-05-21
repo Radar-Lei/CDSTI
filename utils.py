@@ -20,8 +20,9 @@ def train(
     config,
     train_loader,
     valid_loader=None,
-    valid_epoch_interval=5,
+    valid_epoch_interval=50,
     foldername="",
+    args=None
 ):
     optimizer = Adam(model.parameters(), lr=config["lr"], weight_decay=1e-6)
     if foldername != "":
@@ -32,7 +33,7 @@ def train(
     p2 = int(0.9 * config["epochs"])
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, factor=0.5, patience=10, verbose=True
+    optimizer, factor=0.9, patience=10, verbose=True
     )
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
@@ -74,8 +75,8 @@ def train(
                     },
                     refresh=False,
                 )
-            # lr_scheduler.step()
-            scheduler.step(avg_loss)
+            lr_scheduler.step()
+            # scheduler.step(avg_loss)
         if valid_loader is not None and (epoch_no + 1) % valid_epoch_interval == 0:
             model.eval()
             avg_loss_valid = 0
@@ -99,8 +100,9 @@ def train(
                     "at",
                     epoch_no,
                 )
-                if foldername != "":
-                 torch.save(model.state_dict(), output_path)
+
+        if foldername != "":
+            torch.save(model.state_dict(), output_path)
 
 
 

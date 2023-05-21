@@ -60,8 +60,8 @@ class Get_Dataset(Dataset):
 
         self.training_mean = np.mean(data_arr[0:round(len(data_arr)*training_ratio)], axis = 0) # shape (K, )
         self.training_std = np.std(data_arr[0:round(len(data_arr)*training_ratio)], axis = 0) # shape (K, )
-        self.training_mean[self.training_mean == 0] = 1e-6
-        self.training_std[self.training_std == 0] = 1e-6
+        # self.training_mean[self.training_mean == 0] = 1e-6
+        # self.training_std[self.training_std == 0] = 1e-6
 
         actual_mask = 1 - (data_arr == 0) # shape (D*L_d, K)
         

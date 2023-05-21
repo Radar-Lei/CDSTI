@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-
+import numpy as np
 
 def get_torch_trans(heads=8, layers=1, channels=64):
     encoder_layer = nn.TransformerEncoderLayer(
-        d_model=channels, nhead=heads, dim_feedforward=64, activation="gelu"
+        d_model=channels, nhead=heads, dim_feedforward=32, dropout=0.2, activation="gelu"
     )
     return nn.TransformerEncoder(encoder_layer, num_layers=layers)
 
@@ -30,6 +30,7 @@ class DiffusionEmbedding(nn.Module):
         self.projection2 = nn.Linear(projection_dim, projection_dim)
 
     def forward(self, diffusion_step):
+        # square bracket indexing 
         x = self.embedding[diffusion_step]
         x = self.projection1(x)
         x = F.silu(x)
@@ -39,11 +40,13 @@ class DiffusionEmbedding(nn.Module):
 
     def _build_embedding(self, num_steps, dim=64):
         steps = torch.arange(num_steps).unsqueeze(1)  # (T,1)
-        frequencies = 10.0 ** (torch.arange(dim) / (dim - 1) * 4.0).unsqueeze(0)  # (1,dim)
-        table = steps * frequencies  # (T,dim)
+        div_term = 1 / torch.pow(
+            10000.0, torch.arange(0, dim, 1) / dim
+        ) 
+        div_term = div_term.unsqueeze(0)  # (1,dim)
+        table = steps * div_term  # (T,dim)
         table = torch.cat([torch.sin(table), torch.cos(table)], dim=1)  # (T,dim*2)
         return table
-
 
 class diff_CDI(nn.Module):
     def __init__(self, config, inputdim=2):
@@ -65,6 +68,7 @@ class diff_CDI(nn.Module):
             [
                 ResidualBlock(
                     side_dim=config["side_dim"],
+                    extra_temporal_dim = config["extra_temporal_dim"],
                     channels=self.channels,
                     diffusion_embedding_dim=config["diffusion_embedding_dim"],
                     nheads=config["nheads"],
@@ -73,24 +77,25 @@ class diff_CDI(nn.Module):
             ]
         )
 
-    def forward(self, x, cond_info, diffusion_step):
+    def forward(self, x, side_info, extra_tem_feature, diffusion_step):
         '''
         B: batch size, K: number of features, L: sequence length.
         if conditional, x is of shape (B,2,K,L) including x_{0}^{co} and x_{t}^{ta}
         '''
         B, inputdim, K, L = x.shape
 
-        x = x.reshape(B, inputdim, K * L)
-        x = self.input_projection(x)
+        x = x.reshape(B, inputdim, K * L) # (B,2,K,L) to (B,2,K*L) since nn.Conv1d only accepts (B, C_in, L_in)
+        x = self.input_projection(x) # (B,channel,K*L)
         x = F.relu(x)
         x = x.reshape(B, self.channels, K, L)
 
-        # diffusion_step, i.e., t is of shape torch.Size([B])
-        diffusion_emb = self.diffusion_embedding(diffusion_step)
+        # diffusion_step, i.e., t is a segement, whose shape torch.Size([B])
+        # diffusion_step_embbed is of shape (B, diffusion_embedding_dim)
+        diffusion_step_embbed = self.diffusion_embedding(diffusion_step)
 
         skip = []
         for layer in self.residual_layers:
-            x, skip_connection = layer(x, cond_info, diffusion_emb)
+            x, skip_connection = layer(x, side_info, extra_tem_feature, diffusion_step_embbed)
             skip.append(skip_connection)
 
         x = torch.sum(torch.stack(skip), dim=0) / math.sqrt(len(self.residual_layers))
@@ -103,9 +108,11 @@ class diff_CDI(nn.Module):
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, side_dim, channels, diffusion_embedding_dim, nheads):
+    def __init__(self, side_dim, extra_temporal_dim, channels, diffusion_embedding_dim, nheads):
         super().__init__()
+        self.extra_tem_dim = extra_temporal_dim
         self.diffusion_projection = nn.Linear(diffusion_embedding_dim, channels)
+        self.extra_temporal_projection = nn.Linear(extra_temporal_dim, channels)
         self.cond_projection = Conv1d_with_init(side_dim, 2 * channels, 1)
         self.mid_projection = Conv1d_with_init(channels, 2 * channels, 1)
         self.output_projection = Conv1d_with_init(channels, 2 * channels, 1)
@@ -131,13 +138,19 @@ class ResidualBlock(nn.Module):
         y = y.reshape(B, L, channel, K).permute(0, 2, 3, 1).reshape(B, channel, K * L)
         return y
 
-    def forward(self, x, cond_info, diffusion_emb):
+    def forward(self, x, cond_info, extra_tem_feature, diffusion_emb):
         B, channel, K, L = x.shape
         base_shape = x.shape
-        x = x.reshape(B, channel, K * L)
+        x = x.reshape(B, channel, K * L) # (B,channel,K*L)
 
-        diffusion_emb = self.diffusion_projection(diffusion_emb).unsqueeze(-1)  # (B,channel,1)
-        y = x + diffusion_emb
+        # project embedded diffusion steps from (B, diffusion_embedding_dim) to (B,channel) then (B,channel,1)
+        diffusion_emb = self.diffusion_projection(diffusion_emb).unsqueeze(-1)  
+        # from (B, extra_temporal_dim, K, L) to (B, extra_temporal_dim, K*L) then to (B, K*L, extra_temporal_dim)
+        extra_tem_feature = extra_tem_feature.reshape(B, self.extra_tem_dim, K * L).permute(0, 2, 1)
+        extra_tem_feature = self.extra_temporal_projection(extra_tem_feature) # (B,K*L,channel)
+        extra_tem_feature = extra_tem_feature.permute(0, 2, 1) # (B,channel,K*L)
+
+        y = x + diffusion_emb + extra_tem_feature
 
         y = self.forward_time(y, base_shape)
         y = self.forward_feature(y, base_shape)  # (B,channel,K*L)

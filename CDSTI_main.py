@@ -14,8 +14,10 @@ class CDSTI_base(nn.Module):
         self.emb_dow_dim = config["model"]["dowemb"]
         self.emb_tod_dim = config["model"]["todemb"]
         # + 1 for considering the conditional mask as one of the side info
-        self.emb_total_dim = self.emb_time_dim + self.emb_feature_dim + self.emb_dow_dim + self.emb_tod_dim + 1
+        self.emb_side_dim = self.emb_feature_dim + 1
+        self.emd_extra_tem_dim = self.emb_time_dim + self.emb_dow_dim + self.emb_tod_dim
 
+        # feature dimension
         self.embed_layer = nn.Embedding(
             num_embeddings=self.spatial_dim, embedding_dim=self.emb_feature_dim
         )
@@ -30,7 +32,8 @@ class CDSTI_base(nn.Module):
 
         # parameters for diffusion models
         config_diff = config["diffusion"]
-        config_diff["side_dim"] = self.emb_total_dim
+        config_diff["side_dim"] = self.emb_side_dim
+        config_diff["extra_temporal_dim"] = self.emd_extra_tem_dim
 
         # input_dim of the noise predictor
         # if conditional, then the one input sample is (x_{0}^{co}, x_{t}^{ta}) of shape (K,L,2) 
@@ -72,8 +75,22 @@ class CDSTI_base(nn.Module):
         return pe
     
 
-    def get_side_info(self, observed_tp, cond_mask, dow_arr, tod_arr):
+    def get_side_info(self, cond_mask):
         B, K, L = cond_mask.shape
+
+        feature_embed = self.embed_layer(
+            torch.arange(self.spatial_dim).to(self.device)
+        )  # (K,emb)
+        feature_embed = feature_embed.unsqueeze(0).unsqueeze(0).expand(B, L, -1, -1) # (K,emb) -> (1,1,K,emb) -> (B,L,K,feature_emb)
+        feature_embed = feature_embed.permute(0,3,2,1) # (B,L,K,feature_emb) -> (B,feature_emb,K,L)
+
+        side_mask = cond_mask.unsqueeze(1)  # (B,K,L) -> (B,1,K,L)
+        side_info = torch.cat([feature_embed, side_mask], dim=1) # -> (B,feature_emb+1,K,L)
+
+        return side_info
+    
+    def extra_temporal_feature(self, observed_tp, conda_mask, dow_arr, tod_arr):
+        B, K, L = conda_mask.shape
 
         time_embed = self.time_embedding(observed_tp, self.emb_time_dim)  # (B,L,emb)
         time_embed = time_embed.unsqueeze(2).expand(-1, -1, K, -1) # (B,L,emd) -> (B,L,1,emb) -> (B,L,K,time_emb)
@@ -84,32 +101,24 @@ class CDSTI_base(nn.Module):
         tod_embed = self.tod_emb_layer(tod_arr) # (B,L,emb)
         tod_embed = tod_embed.unsqueeze(2).expand(-1, -1, K, -1) # (B,L,emb) -> (B,L,1,emb) -> (B,L,K,tod_emb)
 
-        feature_embed = self.embed_layer(
-            torch.arange(self.spatial_dim).to(self.device)
-        )  # (K,emb)
-        feature_embed = feature_embed.unsqueeze(0).unsqueeze(0).expand(B, L, -1, -1) # (K,emb) -> (1,1,K,emb) -> (B,L,K,feature_emb)
+        extra_info = torch.cat([time_embed, dow_embed, tod_embed], dim=-1)  # (B,L,K,*)
+        extra_info = extra_info.permute(0, 3, 2, 1)  # (B,*,K,L)
 
-        side_info = torch.cat([time_embed, feature_embed, dow_embed, tod_embed], dim=-1)  # (B,L,K,*)
-        side_info = side_info.permute(0, 3, 2, 1)  # (B,*,K,L)
-
-        side_mask = cond_mask.unsqueeze(1)  # (B,K,L) -> (B,1,K,L)
-        side_info = torch.cat([side_info, side_mask], dim=1) # (B,*,K,L) -> (B,*+1,K,L)
-
-        return side_info
+        return extra_info
 
     def calc_loss_valid(
-        self, observed_data, cond_mask, observed_mask, side_info, is_train
+        self, observed_data, cond_mask, observed_mask, side_info, extra_tem_feature, is_train
     ):
         loss_sum = 0
         for t in range(self.num_steps):  # calculate loss for all t
             loss = self.calc_loss(
-                observed_data, cond_mask, observed_mask, side_info, is_train, set_t=t
+                observed_data, cond_mask, observed_mask, side_info, extra_tem_feature, is_train, set_t=t
             )
             loss_sum += loss.detach()
         return loss_sum / self.num_steps
 
     def calc_loss(
-        self, observed_data, missing_mask, actual_mask, side_info, is_train, set_t=-1
+        self, observed_data, missing_mask, actual_mask, side_info, extra_tem_feature, is_train, set_t=-1
     ):
         B, K, L = observed_data.shape
         if is_train != 1:  # for validation
@@ -123,7 +132,7 @@ class CDSTI_base(nn.Module):
         # alpha_torch is of shape (T,1,1), t is of torch.Size([B])
         current_alpha = self.alpha_torch[t]  # (B,1,1)
         noise = torch.randn_like(observed_data) # (B,K,L)
-        noisy_data = (current_alpha ** 0.5) * observed_data + (1.0 - current_alpha) ** 0.5 * noise
+        noisy_data = (current_alpha ** 0.5) * observed_data + ((1.0 - current_alpha) ** 0.5) * noise
 
         target_mask = actual_mask - missing_mask
         # if unconditional, total_input = x_{t} = [x_{t}^{ta}, x_{t}^{co}], shape (B,1,K,L)
@@ -131,7 +140,7 @@ class CDSTI_base(nn.Module):
         total_input = self.set_input_to_diffmodel(noisy_data, observed_data, missing_mask)
 
         # predicted noise
-        predicted = self.diffmodel(total_input, side_info, t)  # (B,K,L)
+        predicted = self.diffmodel(total_input, side_info, extra_tem_feature, t)  # (B,K,L)
 
         residual = (noise - predicted) * target_mask
         num_eval = target_mask.sum()
@@ -146,7 +155,7 @@ class CDSTI_base(nn.Module):
 
         return total_input
 
-    def impute(self, observed_data, cond_mask, side_info, n_samples):
+    def impute(self, observed_data, cond_mask, side_info, extra_tem_feature, n_samples):
         B, K, L = observed_data.shape
 
         imputed_samples = torch.zeros(B, n_samples, K, L).to(self.device)
@@ -160,10 +169,10 @@ class CDSTI_base(nn.Module):
                 cond_obs = (cond_mask * observed_data).unsqueeze(1)
                 noisy_target = ((1 - cond_mask) * current_sample).unsqueeze(1)
                 diff_input = torch.cat([cond_obs, noisy_target], dim=1)  # (B,2,K,L)
-                predicted = self.diffmodel(diff_input, side_info, torch.tensor([t]).to(self.device))
+                predicted = self.diffmodel(diff_input, side_info, extra_tem_feature, torch.tensor([t]).to(self.device))
 
-                coeff1 = 1 / self.alpha_hat[t] ** 0.5
-                coeff2 = (1 - self.alpha_hat[t]) / (1 - self.alpha[t]) ** 0.5
+                coeff1 = 1 / (self.alpha_hat[t] ** 0.5)
+                coeff2 = (1 - self.alpha_hat[t]) / ((1 - self.alpha[t]) ** 0.5)
                 current_sample = coeff1 * (current_sample - coeff2 * predicted)
 
                 if t > 0:
@@ -187,11 +196,12 @@ class CDSTI_base(nn.Module):
         ) = self.process_data(batch)
 
 
-        side_info = self.get_side_info(timestamps, missing_mask, dow_arr, tod_arr)
+        side_info = self.get_side_info(missing_mask)
+        extra_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
 
         loss_func = self.calc_loss if is_train == 1 else self.calc_loss_valid
 
-        return loss_func(actual_data, missing_mask, actual_mask, side_info, is_train)
+        return loss_func(actual_data, missing_mask, actual_mask, side_info, extra_feature, is_train)
 
     def evaluate(self, batch, n_samples):
         (
@@ -210,10 +220,11 @@ class CDSTI_base(nn.Module):
             observed_data = actual_data
 
             target_mask = observed_mask - cond_mask
+            extra_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
 
-            side_info = self.get_side_info(observed_tp, cond_mask, dow_arr, tod_arr)
+            side_info = self.get_side_info(cond_mask)
 
-            samples = self.impute(observed_data, cond_mask, side_info, n_samples)
+            samples = self.impute(observed_data, cond_mask, side_info, extra_feature, n_samples)
 
             # for i in range(len(cut_length)):  # to avoid double evaluation
             #     target_mask[i, ..., 0 : cut_length[i].item()] = 0
