@@ -1,0 +1,30 @@
+
+#args for Guangzhou dataset
+
+train:
+  epochs: 500
+  batch_size: 2
+  lr: 1.0e-3
+  
+
+diffusion:
+  layers: 4 
+  channels: 64 
+  nheads: 8
+  diffusion_embedding_dim: 128
+  beta_start: 0.0001
+  beta_end: 0.5
+  num_steps: 50
+  schedule: "quad"
+
+model:
+  device: "cuda:0"
+  timeemb: 128
+  featureemb: 128
+  missing_pattern: "RM"
+  missing_rate: 0.3
+  BM_block_window_length: 4
+  sequence_length: 20
+  toddim: 96
+  dowemd: 32
+  todemd: 128

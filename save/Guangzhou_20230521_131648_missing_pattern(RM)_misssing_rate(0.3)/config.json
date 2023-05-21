@@ -1,0 +1,30 @@
+{
+    "train": {
+        "epochs": 200,
+        "batch_size": 8,
+        "lr": 0.001
+    },
+    "diffusion": {
+        "layers": 4,
+        "channels": 64,
+        "nheads": 8,
+        "diffusion_embedding_dim": 128,
+        "beta_start": 0.0001,
+        "beta_end": 0.5,
+        "num_steps": 50,
+        "schedule": "quad"
+    },
+    "model": {
+        "device": "cuda:0",
+        "timeemb": 128,
+        "featureemb": 32,
+        "missing_pattern": "RM",
+        "missing_rate": 0.3,
+        "BM_block_window_length": 6,
+        "sequence_length": 24,
+        "toddim": 144,
+        "dowemb": 16,
+        "todemb": 128,
+        "save_folder": ""
+    }
+}
