@@ -61,7 +61,7 @@ class Get_Dataset(Dataset):
         self.training_mean = np.mean(data_arr[0:round(len(data_arr)*training_ratio)], axis = 0) # shape (K, )
         self.training_std = np.std(data_arr[0:round(len(data_arr)*training_ratio)], axis = 0) # shape (K, )
         # self.training_mean[self.training_mean == 0] = 1e-6
-        # self.training_std[self.training_std == 0] = 1e-6
+        self.training_std[self.training_std == 0] = 1e-6
 
         actual_mask = 1 - (data_arr == 0) # shape (D*L_d, K)
         
@@ -155,8 +155,8 @@ class Get_Dataset(Dataset):
         return sample
 
 def get_dataloader(batch_size, 
-                device, missing_pattern="RM", missing_rate=0.3, training_ratio=0.9, 
-                valid_ratio=0.05, dataset_name="", save_folder="", BM_window_length=6, seq_length=36):
+                device, missing_pattern="RM", missing_rate=0.3, training_ratio=0.8, 
+                valid_ratio=0.1, dataset_name="", save_folder="", BM_window_length=6, seq_length=36):
     
     dataset = Get_Dataset(missing_pattern, missing_rate, training_ratio, dataset_name, save_folder, BM_window_length, seq_length)
 
@@ -172,9 +172,6 @@ def get_dataloader(batch_size,
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-
-    # tensor_mean = torch.tensor(dataset.training_mean, device=device, dtype=torch.float32)
-    # tensor_std = torch.tensor(dataset.training_std, device=device, dtype=torch.float32)
 
     tensor_mean = torch.from_numpy(dataset.training_mean).to(device).float()
     tensor_std = torch.from_numpy(dataset.training_mean).to(device).float()

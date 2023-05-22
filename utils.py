@@ -20,9 +20,9 @@ def train(
     config,
     train_loader,
     valid_loader=None,
-    valid_epoch_interval=50,
+    valid_epoch_interval=10,
+    early_stopping_patience = 10,
     foldername="",
-    args=None
 ):
     optimizer = Adam(model.parameters(), lr=config["lr"], weight_decay=1e-6)
     if foldername != "":
@@ -33,7 +33,7 @@ def train(
     p2 = int(0.9 * config["epochs"])
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, factor=0.9, patience=10, verbose=True
+    optimizer, factor=0.6, patience=5, verbose=True
     )
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
@@ -101,16 +101,23 @@ def train(
                     epoch_no,
                 )
 
-        if foldername != "":
-            torch.save(model.state_dict(), output_path)
+            if foldername != "":
+                torch.save(model.state_dict(), output_path)
 
+            else:
+                early_stopping_counter += 1
+                if early_stopping_counter >= early_stopping_patience:
+                    stop_training = True
+                    print(
+                        f"\n Early stopping triggered. No improvement in {epoch_no} epochs."
+                    )
+                    break
 
 
 def quantile_loss(target, forecast, q: float, eval_points) -> float:
     return 2 * torch.sum(
         torch.abs((forecast - target) * eval_points * ((target <= forecast) * 1.0 - q))
     )
-
 
 def calc_denominator(target, eval_points):
     return torch.sum(torch.abs(target * eval_points))
