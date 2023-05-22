@@ -75,8 +75,8 @@ def train(
                     },
                     refresh=False,
                 )
-            lr_scheduler.step()
-            # scheduler.step(avg_loss)
+            # lr_scheduler.step()
+            scheduler.step(avg_loss)
         if valid_loader is not None and (epoch_no + 1) % valid_epoch_interval == 0:
             model.eval()
             avg_loss_valid = 0
@@ -107,7 +107,6 @@ def train(
             else:
                 early_stopping_counter += 1
                 if early_stopping_counter >= early_stopping_patience:
-                    stop_training = True
                     print(
                         f"\n Early stopping triggered. No improvement in {epoch_no} epochs."
                     )
