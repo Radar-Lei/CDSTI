@@ -2,19 +2,19 @@
 #args for Guangzhou dataset
 
 train:
-  epochs: 3
+  epochs: 1000
   batch_size: 4
-  lr: 3.0e-4
+  lr: 3.0e-3
 
 diffusion:
   layers: 2
-  channels: 256
+  channels: 32
   nheads: 8
-  diffusion_embedding_dim: 64 # the embedding dimension for diffusion steps
+  diffusion_embedding_dim: 32 # the embedding dimension for diffusion steps
   beta_start: 0.0001
-  beta_end: 0.5
-  num_steps: 1000
-  schedule: "linear"
+  beta_end: 0.2
+  num_steps: 100
+  schedule: "quad"
 
 model:
   device: "cuda:0"
