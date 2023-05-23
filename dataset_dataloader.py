@@ -29,7 +29,9 @@ class Get_Dataset(Dataset):
             dow_arr = self._generate_dow_array('2019/01/01', '2019/01/25')[0]
 
         elif dataset_name == "Seattle":
-            data_arr = pd.read_pickle('./dataset/Seattle/speed_matrix_2015').values # (D*L_d, K)
+            data_arr = pd.read_pickle('./dataset/Seattle/speed_matrix_2015') # (D*L_d, K)
+            data_arr.to_csv('./dataset/Seattle/speed_matrix_2015.csv', index=True)
+
             dow_arr, date_range = self._generate_dow_array('2015/01/01', '2015/12/31')
             D = len(date_range)
             L_d = 288
