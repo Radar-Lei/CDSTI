@@ -121,13 +121,8 @@ class CDSTI_base(nn.Module):
         self, observed_data, missing_mask, actual_mask, side_info, extra_tem_feature, is_train, set_t=-1
     ):
         B, K, L = observed_data.shape
-        if is_train != 1:  # for validation
-            t = (torch.ones(B) * set_t).long().to(self.device)
-        else:
-            # in Pytorch, shape of a tensor is specified using a list or tuple even if it is one-dimensional,
-            # thus we use [B] instead of B
-            # this randomly samples a seq of integers from [0, num_steps)
-            t = torch.randint(0, self.num_steps, [B]).to(self.device)
+
+        t = torch.randint(0, self.num_steps, [B]).to(self.device)
 
         # alpha_torch is of shape (T,1,1), t is of torch.Size([B])
         current_alpha = self.alpha_torch[t]  # (B,1,1)
@@ -184,12 +179,26 @@ class CDSTI_base(nn.Module):
 
             imputed_samples[:, i] = current_sample.detach()
         return imputed_samples
+    
+    def sm_mask_generator(self, actual_mask):
+        """
+        generate the missing mask for SM missing pattern,
+        should follow the same strategy as dataloader to 
+        select cols to be structurally missing, but without
+        fixed random seed for training set diversity.
+
+        return: (B,K,L) as the cond_mask in model training
+        """
+        # actual_mask: (B,K,L)
+        copy_mask = actual_mask.clone()
+        B, dim_K, L = copy_mask.shape
+        selected_features = np.random.choice(dim_K, round(dim_K * 1 - missing_rate), replace=False)
+        
 
     def forward(self, batch, is_train=1):
         (
             actual_data, # x_0 (B,K,L)
             actual_mask, # (B,K,L)
-            missing_mask, # (B,K,L)
             timestamps, # (B,L)
             dow_arr, # (B,L)
             tod_arr, # (B,L)

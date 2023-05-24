@@ -22,17 +22,20 @@ parser.add_argument('--baseconfig', type=str, default='Guangzhou.yaml', help='ba
 parser.add_argument(
     '--missingpattern', 
     type=str, 
-    default='BM', 
-    help='''RM: random missing, NM: non-random missing, 
-    BM: blackout missing, RSM: random structural missing,
-    NRSM: non-random structural missing,'''
+    default='RSM', 
+    help='RSM: random structural missing, NRSM: non-random structural missing'
     )
 
-parser.add_argument('--missingrate', type=float, default=0.3, help='default missing rate: 30/%; for SM, the missing rate denotes the proportion of nodes or locations with empty data')
+parser.add_argument(
+    '--missingrate', type=float, default=0.3, 
+    help='''default missing rate: 30/%; for SM, 
+    the missing rate denotes the proportion of 
+    nodes or locations with empty data'''
+                    )
 parser.add_argument('--device', type=str, default='cuda:0', help='device')
 parser.add_argument('--nsample', type=int, default=100, help='number of samples')
 parser.add_argument("--modelfolder", type=str, default="")
-parser.add_argument('--BMblocklength', type=int, default=4, help='block length for blackout missing pattern')
+
 parser.add_argument('--seqlen', type=int, default=36, help='sequence length')
 
 args = parser.parse_args()
@@ -48,8 +51,8 @@ if args.baseconfig == "":
     config["model"]["missing_pattern"] = args.missingpattern
     config["model"]["missing_rate"] = args.missingrate
     config["model"]["device"] = args.device
-    config["model"]["BM_block_window_length"] = args.BMblocklength
     config["model"]["sequence_length"] = args.seqlen
+    config["train"]["nsample"] = args.nsample
 
 # json.dumps() method can be used to convert a Python dictionary into a JSON string.
 # indent: indent level in json file
@@ -73,9 +76,8 @@ with open(foldername + "config.json", "w") as f:
     json.dump(config, f, indent=4)
 
 (
-    train_loader, 
-    valid_loader, 
-    test_loader, 
+    train_loader,
+    test_loader,
     tensor_mean, 
     tensor_std
 ) = get_dataloader(
@@ -85,8 +87,8 @@ with open(foldername + "config.json", "w") as f:
     config['model']['missing_rate'], 
     dataset_name=args.dataset, 
     save_folder=args.modelfolder,
-    BM_window_length=config['model']['BM_block_window_length'],
-    seq_length = config['model']['sequence_length']
+    seq_length = config['model']['sequence_length'],
+    test_ratio=config['train']['test_ratio']
     )
 
 if args.dataset == "Guangzhou":
@@ -109,17 +111,10 @@ if config["model"]["save_folder"] == "":
         model,
         config["train"],
         train_loader,
-        valid_loader=valid_loader,
+        test_loader=test_loader,
+        mean = tensor_mean,
+        std = tensor_std,
         foldername=args.modelfolder,
     )
 else:
     model.load_state_dict(torch.load("./save/" + args.modelfolder + "/model.pth"))
-
-evaluate(
-    model,
-    test_loader,
-    nsample=args.nsample,
-    scaler=tensor_std,
-    mean_scaler=tensor_mean,
-    foldername=args.modelfolder,
-)

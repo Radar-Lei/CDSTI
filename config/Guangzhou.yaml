@@ -5,6 +5,8 @@ train:
   epochs: 200
   batch_size: 16
   lr: 2.0e-3
+  nsample: 100
+  test_ratio: 0.1
 
 diffusion:
   layers: 4
@@ -20,9 +22,8 @@ model:
   device: "cuda:0"
   timeemb: 64
   featureemb: 128
-  missing_pattern: "RM"
+  missing_pattern: "NSM"
   missing_rate: 0.3
-  BM_block_window_length: 6
   sequence_length: 18
   toddim: 144
   dowemb: 16

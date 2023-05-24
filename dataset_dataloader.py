@@ -1,27 +1,18 @@
 import numpy as np
 from scipy.io import loadmat
-from torch.utils.data import Dataset, DataLoader, Subset
+from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 import torch
 import pickle
-from utils import mat2ten, ten2mat
+from utils import mat2ten
 import pandas as pd
-
-def supplementary_sampling(arr, N, l):
-    LK = arr.shape
-    L = LK[0]
-    indices = np.random.choice(L - l + 1, N, replace=False)
-    subsequences = []
-    for idx in indices:
-        subsequence = arr[idx:idx+l]
-        subsequences.append(subsequence)
-    return subsequences
 
 class Get_Dataset(Dataset):
     def __init__(
-            self, missing_pattern='RM', 
-            missing_rate=0.3, 
-            training_ratio=0.8, dataset_name="", save_folder="", 
-            BM_window_length=6, seq_len=36
+            self, missing_pattern='RSM', 
+            missing_rate=0.1,
+            dataset_name="", 
+            save_folder="", 
+            seq_len=36
                 ):
         """
         K: number of features, number of nodes
@@ -57,10 +48,10 @@ class Get_Dataset(Dataset):
         else:
             print(0)
 
-        dim1, dim2, dim3 = data_mat.shape
+        dim_K, dim2_L_d, dim3_D = data_mat.shape
 
-        dow_arr = np.repeat(dow_arr, dim2) # from (D, ) to (D*L_d, )
-        tod_arr = np.concatenate([np.arange(dim2)] * dim3) # creating (L_d,) and then repeat D times to (D*L_d, )
+        dow_arr = np.repeat(dow_arr, dim2_L_d) # from (D, ) to (D*L_d, )
+        tod_arr = np.concatenate([np.arange(dim2_L_d)] * dim3_D) # creating (L_d,) and then repeat D times to (D*L_d, )
 
         # reshap the data_arr to (D*L_d, K)
         # to maintain the order, first transpose (K, L_d, D) to (D, L_d, K), notice the feature dim need to place 
@@ -70,39 +61,33 @@ class Get_Dataset(Dataset):
 
         data_arr[np.isnan(data_arr)] = 0
 
-        self.training_mean = np.mean(data_arr[0:round(len(data_arr)*training_ratio)], axis = 0) # shape (K, )
-        self.training_std = np.std(data_arr[0:round(len(data_arr)*training_ratio)], axis = 0) # shape (K, )
-        # self.training_mean[self.training_mean == 0] = 1e-6
-        self.training_std[self.training_std == 0] = 1e-6
-
         actual_mask = 1 - (data_arr == 0) # shape (D*L_d, K)
         
-        if missing_pattern == 'RM':
+        if missing_pattern == 'RSM':
             np.random.seed(1000)
-            data_mat_missing = data_mat * np.round(np.random.rand(dim1, dim2, dim3) + 0.5 - missing_rate) # (K, L_d, D)
-        elif missing_pattern == 'NM':
-            np.random.seed(1000)
-            data_mat_missing = data_mat * np.round(np.random.rand(dim1, dim3) + 0.5 - missing_rate)[:, None, :]
-        elif missing_pattern == 'BM':
+            selected_features = np.random.choice(dim_K, round(dim_K * 1 - missing_rate), replace=False)
+            data_arr_missing = data_arr.copy()
+            data_arr_missing[:, selected_features] = 0 # shape (D*L_d, K)
 
-            dim_time = dim2 * dim3
-            # block window length denote the number of time points of the missing block
+        elif missing_pattern == 'NRSM':
             np.random.seed(1000)
-            vec = np.random.rand(int(dim_time / BM_window_length)) # shape (L_d*D/block_window, ), (1464,)
-            temp = np.array([vec] * BM_window_length) # shape (block_window, L_d*D/block_window), (6, 1464)
-            vec = temp.reshape([dim2 * dim3], order = 'F') # shape (L_d*D, ), (8760,)
-            data_mat_missing = mat2ten(ten2mat(data_mat, 0) * np.round(vec + 0.5 - missing_rate)[None, :], np.array([dim1, dim2, dim3]), 0)
+            data_mat_missing = data_mat * np.round(np.random.rand(dim_K, dim3_D) + 0.5 - missing_rate)[:, None, :]
         else:
+            # this missing pattern should be called mixed, but not usre if it's meaningful
+            """
+            I think this senario is still meaningful, in reality, if we wanna do network-wide estimation, 
+            the observed data we use to infer the SM could be partially missing. we need to test the model
+            performance/power under this senario.
+            """
             data_mat_missing = data_arr
         
-        # save data_mat with specified missing pattern
+        missing_mask = 1 - (data_arr_missing == 0) # shape (D*L_d, K), 1 indicates observed, 0 indicates missing
+        # save the missing mask for method comparison
         save_path = save_folder + '/' + 'tensor_missing.npz'
         np.savez(save_path, data_mat_missing)
 
-        # (K, L_d, D) -> (D, L_d, K) -> (D*L_d, K)
-        data_arr_missing = np.transpose(data_mat_missing, (2, 1, 0)).reshape((data_mat_missing.shape[2] * data_mat_missing.shape[1], data_mat_missing.shape[0]))
-
-        missing_mask = 1 - (data_arr_missing == 0) # shape (D*L_d, K)
+        # both are of shape (K, )
+        self.training_mean, self.training_std = self._meanstd_calculator(data_arr, actual_mask) 
 
         # normalization using mean and std of training data
         data_arr_norm = ((data_arr - self.training_mean) / self.training_std) * actual_mask
@@ -119,15 +104,18 @@ class Get_Dataset(Dataset):
         self.dow_arrs = self._split_into_subsequences(dow_arr, seq_len)
         self.tod_arrs = self._split_into_subsequences(tod_arr, seq_len)
 
-        # creating random overlapping samples as supplementary samples
-        ro_samples_num = round(len(self.subsequences) * 8)
-        self.subsequences.extend(supplementary_sampling(data_arr_norm, ro_samples_num, seq_len))
-        self.actual_masks.extend(supplementary_sampling(actual_mask, ro_samples_num, seq_len))
-        self.missing_masks.extend(supplementary_sampling(missing_mask, ro_samples_num, seq_len))
-        self.dow_arrs.extend(supplementary_sampling(dow_arr, ro_samples_num, seq_len))
-        self.tod_arrs.extend(supplementary_sampling(tod_arr, ro_samples_num, seq_len))
+    def _meanstd_calculator(self, arr, mask):
+        dim1, _ = arr.shape # arr's shape (D*L_d, K)
+        mean = np.zeros(dim1)
+        std = np.zeros(dim1)
 
-
+        for k in range (dim1):
+            k_arr = arr[:, k][mask[:, k] == 1]
+            mean[k] = k_arr.mean()
+            std[k] = k_arr.std()
+        
+        return mean, std
+            
     def _split_into_subsequences(self, arr, l):
         LK = arr.shape # arr could 1D or 2D
         L = LK[0]
@@ -175,26 +163,38 @@ class Get_Dataset(Dataset):
         
         return sample
 
-def get_dataloader(batch_size, 
-                device, missing_pattern="RM", missing_rate=0.3, training_ratio=0.8, 
-                valid_ratio=0.1, dataset_name="", save_folder="", BM_window_length=6, seq_length=36):
+def get_dataloader(
+        batch_size,
+        device, 
+        missing_pattern="RSM", 
+        missing_rate=0.1, 
+        dataset_name="", 
+        save_folder="", 
+        seq_length=144,
+        test_ratio=0.2
+                ):
     
-    dataset = Get_Dataset(missing_pattern, missing_rate, training_ratio, dataset_name, save_folder, BM_window_length, seq_length)
+    dataset = Get_Dataset(
+        missing_pattern, 
+        missing_rate, 
+        dataset_name, 
+        save_folder, 
+        seq_length
+        )
+    
+    num_samples = len(dataset)
+    indices = np.arange(num_samples)
+    np.random.shuffle(indices)
 
-    # Define the split sizes
-    train_size = int(training_ratio * len(dataset))
-    valid_size = int(valid_ratio * len(dataset))
-
-    # Split the dataset into train, validation, and test
-    train_dataset = Subset(dataset, range(0, train_size))
-    valid_dataset = Subset(dataset, range(train_size, train_size + valid_size))
-    test_dataset = Subset(dataset, range(train_size + valid_size, len(dataset)))
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    test_size = int(test_ratio * num_samples)
+    test_size = int(test_ratio * num_samples)
+    test_indices = indices[:test_size]
+    test_sampler = SubsetRandomSampler(test_indices)
+    
+    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(dataset, batch_size=batch_size, sampler=test_sampler)
 
     tensor_mean = torch.from_numpy(dataset.training_mean).to(device).float()
     tensor_std = torch.from_numpy(dataset.training_mean).to(device).float()
 
-    return train_loader, valid_loader, test_loader, tensor_mean, tensor_std
+    return train_loader, test_loader, tensor_mean, tensor_std

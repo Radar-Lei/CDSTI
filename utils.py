@@ -19,7 +19,9 @@ def train(
     model,
     config,
     train_loader,
-    valid_loader=None,
+    test_loader=None,
+    mean = 0,
+    std = 1,
     valid_epoch_interval=10,
     early_stopping_patience = 10,
     foldername="",
@@ -33,7 +35,7 @@ def train(
     p2 = int(0.9 * config["epochs"])
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, factor=0.6, patience=5, verbose=True
+    optimizer, factor=0.5, patience=50, verbose=True
     )
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
@@ -77,41 +79,16 @@ def train(
                 )
             # lr_scheduler.step()
             scheduler.step(avg_loss)
-        if valid_loader is not None and (epoch_no + 1) % valid_epoch_interval == 0:
-            model.eval()
-            avg_loss_valid = 0
-            with torch.no_grad():
-                with tqdm(valid_loader, mininterval=2.0, maxinterval=50.0) as it:
-                    for batch_no, valid_batch in enumerate(it, start=1):
-                        loss = model(valid_batch, is_train=0)
-                        avg_loss_valid += loss.item()
-                        it.set_postfix(
-                            ordered_dict={
-                                "valid_avg_epoch_loss": avg_loss_valid / batch_no,
-                                "epoch": epoch_no,
-                            },
-                            refresh=False,
-                        )
-            if best_valid_loss > avg_loss_valid:
-                best_valid_loss = avg_loss_valid
-                print(
-                    "\n best loss is updated to ",
-                    avg_loss_valid / batch_no,
-                    "at",
-                    epoch_no,
-                )
 
-            if foldername != "":
-                torch.save(model.state_dict(), output_path)
-
-            else:
-                early_stopping_counter += 1
-                if early_stopping_counter >= early_stopping_patience:
-                    print(
-                        f"\n Early stopping triggered. No improvement in {epoch_no} epochs."
-                    )
-                    break
-
+        if  (epoch_no + 1) % valid_epoch_interval == 0:
+            evaluate(
+                model,
+                test_loader,
+                nsample=config['nsample'],
+                mean=mean,
+                std=std,
+                foldername=foldername,
+            )
 
 def quantile_loss(target, forecast, q: float, eval_points) -> float:
     return 2 * torch.sum(
@@ -139,7 +116,7 @@ def calc_quantile_CRPS(target, forecast, eval_points, mean_scaler, scaler):
     return CRPS.item() / len(quantiles)
 
 
-def evaluate(model, test_loader, nsample=100, scaler=1, mean_scaler=0, foldername=""):
+def evaluate(model, test_loader, nsample=100, mean_scaler=0, scaler=1, foldername=""):
 
     with torch.no_grad():
         model.eval()
