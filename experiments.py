@@ -16,13 +16,21 @@ python experiments.py --dataset Portland --baseconfig Portland.yaml --missingpat
 """
 
 parser = argparse.ArgumentParser(description='Conditional Diffusion Model for Spatiotemporal Traffic Data Imputation')
-parser.add_argument('--dataset', type=str, default='Seattle', help='dataset name:Guangzhou, Hangzhou, Seattle, or Portland')
-parser.add_argument('--baseconfig', type=str, default='Seattle.yaml', help='base config file')
+parser.add_argument('--dataset', type=str, default='Guangzhou', help='dataset name:Guangzhou, Hangzhou, Seattle, or Portland')
+parser.add_argument('--baseconfig', type=str, default='Guangzhou.yaml', help='base config file')
 
-parser.add_argument('--missingpattern', type=str, default='BM', help='RM: random missing, NM: non-random missing, BM: blackout missing, SM: structural missing')
+parser.add_argument(
+    '--missingpattern', 
+    type=str, 
+    default='BM', 
+    help='''RM: random missing, NM: non-random missing, 
+    BM: blackout missing, RSM: random structural missing,
+    NRSM: non-random structural missing,'''
+    )
+
 parser.add_argument('--missingrate', type=float, default=0.3, help='default missing rate: 30/%; for SM, the missing rate denotes the proportion of nodes or locations with empty data')
 parser.add_argument('--device', type=str, default='cuda:0', help='device')
-parser.add_argument('--nsample', type=int, default=50, help='number of samples')
+parser.add_argument('--nsample', type=int, default=100, help='number of samples')
 parser.add_argument("--modelfolder", type=str, default="")
 parser.add_argument('--BMblocklength', type=int, default=4, help='block length for blackout missing pattern')
 parser.add_argument('--seqlen', type=int, default=36, help='sequence length')

@@ -59,7 +59,7 @@ def train(
         This can help reduce the frequency of refreshing the progress bar, 
         which may be useful in cases where refreshing too frequently could slow down the overall execution of the loop.
         """
-        with tqdm(train_loader, mininterval=5.0, maxinterval=50.0) as it:
+        with tqdm(train_loader, mininterval=2.0, maxinterval=50.0) as it:
             for batch_no, train_batch in enumerate(it, start=1):
                 optimizer.zero_grad()
 
@@ -81,7 +81,7 @@ def train(
             model.eval()
             avg_loss_valid = 0
             with torch.no_grad():
-                with tqdm(valid_loader, mininterval=5.0, maxinterval=50.0) as it:
+                with tqdm(valid_loader, mininterval=2.0, maxinterval=50.0) as it:
                     for batch_no, valid_batch in enumerate(it, start=1):
                         loss = model(valid_batch, is_train=0)
                         avg_loss_valid += loss.item()
@@ -153,7 +153,7 @@ def evaluate(model, test_loader, nsample=100, scaler=1, mean_scaler=0, foldernam
         all_observed_time = []
         all_evalpoint = []
         all_generated_samples = []
-        with tqdm(test_loader, mininterval=5.0, maxinterval=50.0) as it:
+        with tqdm(test_loader, mininterval=1.0, maxinterval=50.0) as it:
             for batch_no, test_batch in enumerate(it, start=1):
                 output = model.evaluate(test_batch, nsample)
 

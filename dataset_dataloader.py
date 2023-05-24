@@ -6,6 +6,16 @@ import pickle
 from utils import mat2ten, ten2mat
 import pandas as pd
 
+def supplementary_sampling(arr, N, l):
+    LK = arr.shape
+    L = LK[0]
+    indices = np.random.choice(L - l + 1, N, replace=False)
+    subsequences = []
+    for idx in indices:
+        subsequence = arr[idx:idx+l]
+        subsequences.append(subsequence)
+    return subsequences
+
 class Get_Dataset(Dataset):
     def __init__(
             self, missing_pattern='RM', 
@@ -108,6 +118,15 @@ class Get_Dataset(Dataset):
         self.missing_masks = self._split_into_subsequences(missing_mask, seq_len) 
         self.dow_arrs = self._split_into_subsequences(dow_arr, seq_len)
         self.tod_arrs = self._split_into_subsequences(tod_arr, seq_len)
+
+        # creating random overlapping samples as supplementary samples
+        ro_samples_num = round(len(self.subsequences) * 8)
+        self.subsequences.extend(supplementary_sampling(data_arr_norm, ro_samples_num, seq_len))
+        self.actual_masks.extend(supplementary_sampling(actual_mask, ro_samples_num, seq_len))
+        self.missing_masks.extend(supplementary_sampling(missing_mask, ro_samples_num, seq_len))
+        self.dow_arrs.extend(supplementary_sampling(dow_arr, ro_samples_num, seq_len))
+        self.tod_arrs.extend(supplementary_sampling(tod_arr, ro_samples_num, seq_len))
+
 
     def _split_into_subsequences(self, arr, l):
         LK = arr.shape # arr could 1D or 2D
