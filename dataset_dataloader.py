@@ -19,24 +19,34 @@ class Get_Dataset(Dataset):
         D: number of days
         L_d: number of time intervals in a day
         """
-        if dataset_name == "Guangzhou":
-            path = "./dataset/" + dataset_name + "/tensor.mat"
-            data_mat = loadmat(path)['tensor'].transpose(0,2,1)  # of shape (K, L_d, D) ndarray
-            dow_arr = self._generate_dow_array('2016/08/01', '2016/09/30')[0]
+        if dataset_name == "PeMS7":
+            path = "./dataset/" + dataset_name + "/PeMSD7_V_228.csv"
+            data_arr = pd.read_csv(path, header=None).values # (D*L_d, K)
+            date_range = pd.date_range(start='2012-05-01', end='2012-06-30', freq='D')
+            # Select weekdays and exclude weekends
+            weekdays = date_range[date_range.weekday < 5].dayofweek
+            dow_arr = weekdays.to_numpy() # 44 weekdays
+            L_d = 288 # interval 5 min
 
+            data_mat = np.reshape(data_arr, (len(dow_arr), L_d, -1)).transpose(2, 1, 0) # (K, L_d, D)
+            
         elif dataset_name == "Hangzhou":
             path = "./dataset/" + dataset_name + "/tensor.mat"
             data_mat = loadmat(path)['tensor'].transpose(0,2,1)  # of shape (K, L_d, D) ndarray
             dow_arr = self._generate_dow_array('2019/01/01', '2019/01/25')[0]
 
         elif dataset_name == "Seattle":
-            data_arr = pd.read_pickle('./dataset/Seattle/speed_matrix_2015') # (D*L_d, K)
+            data_arr_df = pd.read_pickle('./dataset/Seattle/speed_matrix_2015') # (D*L_d, K)
             # data_arr.to_csv('./dataset/Seattle/speed_matrix_2015.csv', index=True)
-
+            location_info = pd.read_csv('./dataset/Seattle/Cabinet Location Information.csv')
             dow_arr, date_range = self._generate_dow_array('2015/01/01', '2015/12/31')
             D = len(date_range)
             L_d = 288
-            data_mat = np.reshape(data_arr.values, (D, L_d, -1)).transpose(2, 1, 0) # (K, L_d, D)
+
+            modified_columns = [col[1:] for col in data_arr_df.columns]
+            sorted_location_info = location_info.loc[location_info['CabName'].isin(modified_columns)]
+
+            data_mat = np.reshape(data_arr_df.values, (D, L_d, -1)).transpose(2, 1, 0) # (K, L_d, D)
 
         elif dataset_name == "Portland":
             path = "./dataset/" + dataset_name + "/volume.npy"
@@ -103,6 +113,10 @@ class Get_Dataset(Dataset):
         self.missing_masks = self._split_into_subsequences(missing_mask, seq_len) 
         self.dow_arrs = self._split_into_subsequences(dow_arr, seq_len)
         self.tod_arrs = self._split_into_subsequences(tod_arr, seq_len)
+
+        for each_subseq in self.subsequences:
+           if ((each_subseq * self.training_std + self.training_mean) < 0).sum() > 0:
+               print("nagetive")
 
     def _meanstd_calculator(self, arr, mask):
         _, dim2 = arr.shape # arr's shape (D*L_d, K)
@@ -188,7 +202,6 @@ def get_dataloader(
     np.random.shuffle(indices)
 
     test_size = int(test_ratio * num_samples)
-    test_size = int(test_ratio * num_samples)
     test_indices = indices[:test_size]
 
     test_subset = Subset(dataset, test_indices)
@@ -197,6 +210,6 @@ def get_dataloader(
     test_loader = DataLoader(test_subset, batch_size=batch_size, shuffle=False)
 
     tensor_mean = torch.from_numpy(dataset.training_mean).to(device).float()
-    tensor_std = torch.from_numpy(dataset.training_mean).to(device).float()
+    tensor_std = torch.from_numpy(dataset.training_std).to(device).float()
 
     return train_loader, test_loader, tensor_mean, tensor_std

@@ -3,7 +3,7 @@ import torch
 from torch.optim import Adam
 from tqdm import tqdm
 import pickle
-from visualization import plot_subplots, quantile, process_data
+from visualization import plot_subplots, quantile, preprocess_data
 import os
 
 def ten2mat(tensor, mode):
@@ -237,7 +237,7 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
                 all_target_np, 
                 all_given_np, 
                 all_evalpoint_np
-                ) =  process_data(
+                ) =  preprocess_data(
                 all_generated_samples, 
                 mean, 
                 std, 
@@ -249,7 +249,7 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
             quantiles_imp = quantile(samples, all_target_np, all_given_np)
 
             ###traffic speed###
-            dataind = 15 #change to visualize a different sample
+            dataind = 5 #change to visualize a different sample
 
             num_subplots = len(SM_inds)
             ncols = 4

@@ -6,7 +6,7 @@ import pandas as pd
 def get_quantile(samples,q,dim=1):
     return torch.quantile(samples,q,dim=dim).cpu().numpy()
 
-def process_data(
+def preprocess_data(
         samples, 
         train_mean, 
         train_std, 
@@ -15,10 +15,15 @@ def process_data(
         all_observed, 
         unnormalization=True
         ):
+    """
+    samples: shape(batch_size, n_samples, seq_len, K)
+    all_target: actual data, shape (batch_size, seq_len, K)
+    
+    """
     
     all_target_np = all_target.cpu().numpy()
-    all_evalpoint_np = all_evalpoint.cpu().numpy()
-    all_observed_np = all_observed.cpu().numpy()
+    all_evalpoint_np = all_evalpoint.cpu().numpy() # target mask, 1 for targets, 0 for cond observations
+    all_observed_np = all_observed.cpu().numpy() # mask
     all_given_np = all_observed_np - all_evalpoint_np
 
     # SM nodes, i.e., features
@@ -86,6 +91,7 @@ def plot_subplots(
             plt.setp(axes[-1, col], xlabel='time')
 
     plt.savefig(f"{path}{epoch}.png")
+    plt.close()
 
 
 

@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from BiTrans_predictor import diff_CDI
+from ST_predictor import diff_CDI
 
 class CDSTI_base(nn.Module):
     def __init__(self, spatial_dim, config, device):
@@ -212,8 +212,8 @@ class CDSTI_base(nn.Module):
     def forward(self, batch, is_train=1):
         (
             actual_data, # x_0 (B,K,L)
-            actual_mask, # (B,K,L)
-            _, # do not need missing_mask in training
+            _, # (B,K,L)
+            actual_mask, # missing_mask as the actual mask
             timestamps, # (B,L)
             dow_arr, # (B,L)
             tod_arr, # (B,L)
@@ -242,7 +242,8 @@ class CDSTI_base(nn.Module):
             cond_mask = missing_mask
             observed_mask = actual_mask
             observed_tp = timestamps
-            observed_data = actual_data
+            # to keep the ground truth unchanged
+            observed_data = actual_data.clone()
 
             target_mask = observed_mask - cond_mask
             extra_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
@@ -254,7 +255,7 @@ class CDSTI_base(nn.Module):
             # for i in range(len(cut_length)):  # to avoid double evaluation
             #     target_mask[i, ..., 0 : cut_length[i].item()] = 0
 
-        return samples, observed_data, target_mask, observed_mask, observed_tp
+        return samples, actual_data, target_mask, observed_mask, observed_tp
 
 class CDSTI(CDSTI_base):
     def __init__(self, config, device, spatial_dim):
@@ -268,7 +269,8 @@ class CDSTI(CDSTI_base):
         dow_arr = batch["dow_arr"].to(self.device).long()
         tod_arr = batch["tod_arr"].to(self.device).long()
 
-        actual_data = actual_data.permute(0, 2, 1)
+        # (B.L,K) to (B,K,L)
+        actual_data = actual_data.permute(0, 2, 1) 
         actual_mask = actual_mask.permute(0, 2, 1)
         missing_mask = missing_mask.permute(0, 2, 1)
         
