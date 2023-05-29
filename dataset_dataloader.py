@@ -197,6 +197,6 @@ def get_dataloader(
     test_loader = DataLoader(test_subset, batch_size=batch_size, shuffle=False)
 
     tensor_mean = torch.from_numpy(dataset.training_mean).to(device).float()
-    tensor_std = torch.from_numpy(dataset.training_mean).to(device).float()
+    tensor_std = torch.from_numpy(dataset.training_std).to(device).float()
 
     return train_loader, test_loader, tensor_mean, tensor_std

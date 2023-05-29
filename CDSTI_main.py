@@ -212,8 +212,8 @@ class CDSTI_base(nn.Module):
     def forward(self, batch, is_train=1):
         (
             actual_data, # x_0 (B,K,L)
-            actual_mask, # (B,K,L)
-            _, # do not need missing_mask in training
+            _, # (B,K,L)
+            actual_mask, # use missing_mask as the actual_mask during model training
             timestamps, # (B,L)
             dow_arr, # (B,L)
             tod_arr, # (B,L)
@@ -269,7 +269,7 @@ class CDSTI(CDSTI_base):
         tod_arr = batch["tod_arr"].to(self.device).long()
 
         actual_data = actual_data.permute(0, 2, 1)
-        actual_mask = actual_mask.permute(0, 2, 1)
         missing_mask = missing_mask.permute(0, 2, 1)
+        actual_mask = actual_mask.permute(0, 2, 1)
         
         return (actual_data, actual_mask, missing_mask, timestamps, dow_arr, tod_arr)
