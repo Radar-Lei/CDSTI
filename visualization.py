@@ -6,8 +6,6 @@ import pandas as pd
 def get_quantile(samples,q,dim=1):
     return torch.quantile(samples,q,dim=dim).cpu().numpy()
 
-
-
 def process_data(
         samples, 
         train_mean, 
@@ -67,7 +65,7 @@ def plot_subplots(
         epoch
         ):
     plt.rcParams["font.size"] = 16
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols,figsize=(24.0, 18))
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols,figsize=(24.0, 3.5*nrows))
     fig.delaxes(axes[-1][-1])
 
     for k in range(K):

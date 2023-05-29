@@ -3,10 +3,10 @@
 
 train:
   epochs: 200
-  batch_size: 8
+  batch_size: 16
   lr: 3.0e-3
   nsample: 100
-  test_ratio: 0.05
+  test_ratio: 0.01
   
 diffusion:
   layers: 2
@@ -19,12 +19,12 @@ diffusion:
   schedule: "quad"
 
 model:
-  device: "cuda:1"
+  device: "cuda:0"
   timeemb: 32
   featureemb: 32
   missing_pattern: "RSM"
   missing_rate: 0.3
-  sequence_length: 18
+  sequence_length: 24
   toddim: 288
   dowemb: 32
   todemb: 32

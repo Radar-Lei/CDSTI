@@ -31,12 +31,12 @@ class Get_Dataset(Dataset):
 
         elif dataset_name == "Seattle":
             data_arr = pd.read_pickle('./dataset/Seattle/speed_matrix_2015') # (D*L_d, K)
-            data_arr.to_csv('./dataset/Seattle/speed_matrix_2015.csv', index=True)
+            # data_arr.to_csv('./dataset/Seattle/speed_matrix_2015.csv', index=True)
 
             dow_arr, date_range = self._generate_dow_array('2015/01/01', '2015/12/31')
             D = len(date_range)
             L_d = 288
-            data_mat = np.reshape(data_arr, (D, L_d, -1)).transpose(2, 1, 0) # (K, L_d, D)
+            data_mat = np.reshape(data_arr.values, (D, L_d, -1)).transpose(2, 1, 0) # (K, L_d, D)
 
         elif dataset_name == "Portland":
             path = "./dataset/" + dataset_name + "/volume.npy"
