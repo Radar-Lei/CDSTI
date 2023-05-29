@@ -6,26 +6,27 @@ train:
   batch_size: 16
   lr: 2.0e-3
   nsample: 100
-  test_ratio: 0.1
+  test_ratio: 0.05
 
 diffusion:
   layers: 4
-  channels: 128
+  channels: 64
   nheads: 8
   diffusion_embedding_dim: 64 # the embedding dimension for diffusion steps
   beta_start: 0.0001
   beta_end: 0.2
-  num_steps: 100
+  num_steps: 50
   schedule: "quad"
 
 model:
   device: "cuda:0"
   timeemb: 64
   featureemb: 128
-  missing_pattern: "NSM"
-  missing_rate: 0.3
+  missing_pattern: "RSM"
+  missing_rate: 0.1
   sequence_length: 18
   toddim: 144
   dowemb: 16
   todemb: 16
   save_folder: ""
+  sampling_shrink_interval: 4

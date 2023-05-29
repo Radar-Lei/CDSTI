@@ -7,7 +7,7 @@ import json
 
 from CDSTI_main import CDSTI
 from dataset_dataloader import get_dataloader
-from utils import train, evaluate
+from utils import train
 
 """
 python experiments.py --modelfolder 'Seattle_20230521_000134_missing_pattern(RM)_misssing_rate(0.7)'
@@ -16,8 +16,8 @@ python experiments.py --dataset Portland --baseconfig Portland.yaml --missingpat
 """
 
 parser = argparse.ArgumentParser(description='Conditional Diffusion Model for Spatiotemporal Traffic Data Imputation')
-parser.add_argument('--dataset', type=str, default='Guangzhou', help='dataset name:Guangzhou, Hangzhou, Seattle, or Portland')
-parser.add_argument('--baseconfig', type=str, default='Guangzhou.yaml', help='base config file')
+parser.add_argument('--dataset', type=str, default='Seattle', help='dataset name:Guangzhou, Hangzhou, Seattle, or Portland')
+parser.add_argument('--baseconfig', type=str, default='Seattle.yaml', help='base config file')
 
 parser.add_argument(
     '--missingpattern', 
@@ -33,7 +33,7 @@ parser.add_argument(
     nodes or locations with empty data'''
                     )
 parser.add_argument('--device', type=str, default='cuda:0', help='device')
-parser.add_argument('--nsample', type=int, default=100, help='number of samples')
+parser.add_argument('--nsample', type=int, default=50, help='number of samples')
 parser.add_argument("--modelfolder", type=str, default="")
 
 parser.add_argument('--seqlen', type=int, default=36, help='sequence length')

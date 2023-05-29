@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.io import loadmat
-from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
+from torch.utils.data import Dataset, DataLoader, Subset
 import torch
 import pickle
 from utils import mat2ten
@@ -65,7 +65,7 @@ class Get_Dataset(Dataset):
         
         if missing_pattern == 'RSM':
             np.random.seed(1000)
-            selected_features = np.random.choice(dim_K, round(dim_K * 1 - missing_rate), replace=False)
+            selected_features = np.random.choice(dim_K, round(dim_K * missing_rate), replace=False)
             data_arr_missing = data_arr.copy()
             data_arr_missing[:, selected_features] = 0 # shape (D*L_d, K)
 
@@ -84,7 +84,7 @@ class Get_Dataset(Dataset):
         missing_mask = 1 - (data_arr_missing == 0) # shape (D*L_d, K), 1 indicates observed, 0 indicates missing
         # save the missing mask for method comparison
         save_path = save_folder + '/' + 'tensor_missing.npz'
-        np.savez(save_path, data_mat_missing)
+        np.savez(save_path, missing_mask)
 
         # both are of shape (K, )
         self.training_mean, self.training_std = self._meanstd_calculator(data_arr, actual_mask) 
@@ -105,11 +105,11 @@ class Get_Dataset(Dataset):
         self.tod_arrs = self._split_into_subsequences(tod_arr, seq_len)
 
     def _meanstd_calculator(self, arr, mask):
-        dim1, _ = arr.shape # arr's shape (D*L_d, K)
-        mean = np.zeros(dim1)
-        std = np.zeros(dim1)
+        _, dim2 = arr.shape # arr's shape (D*L_d, K)
+        mean = np.zeros(dim2)
+        std = np.zeros(dim2)
 
-        for k in range (dim1):
+        for k in range (dim2):
             k_arr = arr[:, k][mask[:, k] == 1]
             mean[k] = k_arr.mean()
             std[k] = k_arr.std()
@@ -171,7 +171,7 @@ def get_dataloader(
         dataset_name="", 
         save_folder="", 
         seq_length=144,
-        test_ratio=0.2
+        test_ratio=0.1
                 ):
     
     dataset = Get_Dataset(
@@ -184,15 +184,17 @@ def get_dataloader(
     
     num_samples = len(dataset)
     indices = np.arange(num_samples)
+    np.random.seed(1000)
     np.random.shuffle(indices)
 
     test_size = int(test_ratio * num_samples)
     test_size = int(test_ratio * num_samples)
     test_indices = indices[:test_size]
-    test_sampler = SubsetRandomSampler(test_indices)
+
+    test_subset = Subset(dataset, test_indices)
     
-    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(dataset, batch_size=batch_size, sampler=test_sampler)
+    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_subset, batch_size=batch_size, shuffle=False)
 
     tensor_mean = torch.from_numpy(dataset.training_mean).to(device).float()
     tensor_std = torch.from_numpy(dataset.training_mean).to(device).float()

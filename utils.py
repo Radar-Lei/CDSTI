@@ -3,6 +3,8 @@ import torch
 from torch.optim import Adam
 from tqdm import tqdm
 import pickle
+from visualization import plot_subplots, quantile, process_data
+import os
 
 def ten2mat(tensor, mode):
     return np.reshape(np.moveaxis(tensor, mode, 0), (tensor.shape[mode], -1), order = 'F')
@@ -22,7 +24,7 @@ def train(
     test_loader=None,
     mean = 0,
     std = 1,
-    valid_epoch_interval=10,
+    valid_epoch_interval=5,
     early_stopping_patience = 10,
     foldername="",
 ):
@@ -87,6 +89,7 @@ def train(
                 nsample=config['nsample'],
                 mean=mean,
                 std=std,
+                epoch = epoch_no,
                 foldername=foldername,
             )
 
@@ -99,9 +102,9 @@ def calc_denominator(target, eval_points):
     return torch.sum(torch.abs(target * eval_points))
 
 
-def calc_quantile_CRPS(target, forecast, eval_points, mean_scaler, scaler):
-    target = target * scaler + mean_scaler
-    forecast = forecast * scaler + mean_scaler
+def calc_quantile_CRPS(target, forecast, eval_points, mean, std):
+    target = target * std + mean
+    forecast = forecast * std + mean
 
     quantiles = np.arange(0.05, 1.0, 0.05)
     denom = calc_denominator(target, eval_points)
@@ -116,7 +119,7 @@ def calc_quantile_CRPS(target, forecast, eval_points, mean_scaler, scaler):
     return CRPS.item() / len(quantiles)
 
 
-def evaluate(model, test_loader, nsample=100, mean_scaler=0, scaler=1, foldername=""):
+def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, foldername=""):
 
     with torch.no_grad():
         model.eval()
@@ -132,6 +135,10 @@ def evaluate(model, test_loader, nsample=100, mean_scaler=0, scaler=1, foldernam
         all_generated_samples = []
         with tqdm(test_loader, mininterval=1.0, maxinterval=50.0) as it:
             for batch_no, test_batch in enumerate(it, start=1):
+
+                if batch_no == 1:
+                    print(test_batch['actual_data'][0,:,:])
+
                 output = model.evaluate(test_batch, nsample)
 
                 samples, c_target, eval_points, observed_points, observed_time = output
@@ -151,13 +158,13 @@ def evaluate(model, test_loader, nsample=100, mean_scaler=0, scaler=1, foldernam
 
                 mse_current = (
                     ((samples_median.values - c_target) * eval_points) ** 2
-                ) * (scaler ** 2)
+                ) * (std ** 2)
                 mae_current = (
                     torch.abs((samples_median.values - c_target) * eval_points)
-                ) * scaler
+                ) * std
 
-                # for computing APE, i.e., MAPE, we do not need the std (scaler) to unnormalize the data
-                ape_current = (torch.abs((samples_median.values - c_target) / mean_scaler * c_target) * eval_points)
+                # for computing APE, i.e., MAPE, we do not need the std to unnormalize the data
+                ape_current = torch.abs((samples_median.values- c_target) / c_target ) * eval_points
 
                 mse_total += mse_current.sum().item()
                 mae_total += mae_current.sum().item()
@@ -190,14 +197,14 @@ def evaluate(model, test_loader, nsample=100, mean_scaler=0, scaler=1, foldernam
                         all_evalpoint,
                         all_observed_point,
                         all_observed_time,
-                        scaler,
-                        mean_scaler,
+                        std,
+                        mean,
                     ],
                     f,
                 )
 
             CRPS = calc_quantile_CRPS(
-                all_target, all_generated_samples, all_evalpoint, mean_scaler, scaler
+                all_target, all_generated_samples, all_evalpoint, mean, std
             )
 
             with open(
@@ -216,3 +223,40 @@ def evaluate(model, test_loader, nsample=100, mean_scaler=0, scaler=1, foldernam
                 print("MAE:", mae_total / evalpoints_total)
                 print("MAPE:", (mape_total / evalpoints_total) * 100)
                 print("CRPS:", CRPS)
+
+            unnormalization = True
+
+            # foldername = "Guangzhou_20230525_152915_missing_pattern(RSM)_misssing_rate(0.1)"
+            # path = './save/' + foldername + '/generated_outputs_nsample' + str(nsample) + '.pk' 
+
+            (
+                samples, 
+                SM_inds, 
+                K, 
+                L, 
+                all_target_np, 
+                all_given_np, 
+                all_evalpoint_np
+                ) =  process_data(
+                all_generated_samples, 
+                mean, 
+                std, 
+                all_target, 
+                all_evalpoint, 
+                all_observed_point, 
+                unnormalization)
+
+            quantiles_imp = quantile(samples, all_target_np, all_given_np)
+
+            ###traffic speed###
+            dataind = 15 #change to visualize a different sample
+
+            num_subplots = len(SM_inds)
+            ncols = 4
+            nrows = (num_subplots + ncols - 1) // ncols
+
+            figs_path = foldername + "/figs/"
+            
+            os.makedirs(figs_path, exist_ok=True)
+
+            plot_subplots(nrows, ncols, K, L, dataind, quantiles_imp, all_target_np, all_evalpoint_np, all_given_np, figs_path, epoch)
