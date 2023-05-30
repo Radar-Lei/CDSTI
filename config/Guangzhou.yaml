@@ -2,26 +2,26 @@
 #args for Guangzhou dataset
 
 train:
-  epochs: 200
+  epochs: 500
   batch_size: 16
   lr: 2.0e-3
   nsample: 100
   test_ratio: 0.05
 
 diffusion:
-  layers: 4
+  layers: 2
   channels: 64
-  nheads: 8
-  diffusion_embedding_dim: 64 # the embedding dimension for diffusion steps
+  nheads: 4
+  diffusion_embedding_dim: 32 # the embedding dimension for diffusion steps
   beta_start: 0.0001
   beta_end: 0.2
   num_steps: 50
   schedule: "quad"
 
 model:
-  device: "cuda:0"
-  timeemb: 64
-  featureemb: 128
+  device: "cuda:1"
+  timeemb: 32
+  featureemb: 32
   missing_pattern: "RSM"
   missing_rate: 0.1
   sequence_length: 18

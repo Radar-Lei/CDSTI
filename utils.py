@@ -164,7 +164,7 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
                 ) * std
 
                 # for computing APE, i.e., MAPE, we do not need the std to unnormalize the data
-                ape_current = torch.abs((samples_median.values- c_target) / c_target ) * eval_points
+                ape_current = torch.abs((samples_median.values * std - c_target * std) / (c_target * std ) ) * eval_points
 
                 mse_total += mse_current.sum().item()
                 mae_total += mae_current.sum().item()

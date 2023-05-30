@@ -123,8 +123,13 @@ class CDSTI_base(nn.Module):
         return loss_sum / self.num_steps
 
     def calc_loss(
-        self, observed_data, missing_mask, actual_mask, side_info, extra_tem_feature, is_train, set_t=-1
-    ):
+        self, 
+        observed_data, 
+        missing_mask, 
+        actual_mask, 
+        side_info, 
+        extra_tem_feature
+        ):
         B, K, L = observed_data.shape
 
         t = torch.randint(0, self.num_steps, [B]).to(self.device)
@@ -209,7 +214,7 @@ class CDSTI_base(nn.Module):
         return copy_mask
         
 
-    def forward(self, batch, is_train=1):
+    def forward(self, batch):
         (
             actual_data, # x_0 (B,K,L)
             _, # (B,K,L)
@@ -224,9 +229,9 @@ class CDSTI_base(nn.Module):
         side_info = self.get_side_info(missing_mask)
         extra_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
 
-        loss_func = self.calc_loss if is_train == 1 else self.calc_loss_valid
+        loss_func = self.calc_loss
 
-        return loss_func(actual_data, missing_mask, actual_mask, side_info, extra_feature, is_train)
+        return loss_func(actual_data, missing_mask, actual_mask, side_info, extra_feature)
 
     def evaluate(self, batch, n_samples):
         (
