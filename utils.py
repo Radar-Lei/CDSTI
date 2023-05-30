@@ -37,7 +37,7 @@ def train(
     p2 = int(0.9 * config["epochs"])
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, factor=0.5, patience=50, verbose=True
+    optimizer, factor=0.9, patience=50, verbose=True
     )
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
@@ -92,6 +92,9 @@ def train(
                 epoch = epoch_no,
                 foldername=foldername,
             )
+        
+        if foldername != "":
+            torch.save(model.state_dict(), output_path)
 
 def quantile_loss(target, forecast, q: float, eval_points) -> float:
     return 2 * torch.sum(
@@ -136,9 +139,6 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
         with tqdm(test_loader, mininterval=1.0, maxinterval=50.0) as it:
             for batch_no, test_batch in enumerate(it, start=1):
 
-                if batch_no == 1:
-                    print(test_batch['actual_data'][0,:,:])
-
                 output = model.evaluate(test_batch, nsample)
 
                 samples, c_target, eval_points, observed_points, observed_time = output
@@ -164,7 +164,7 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
                 ) * std
 
                 # for computing APE, i.e., MAPE, we do not need the std to unnormalize the data
-                ape_current = torch.abs((samples_median.values- c_target) / c_target ) * eval_points
+                ape_current = torch.abs((samples_median.values * std - c_target * std) / (c_target * std + mean )) * eval_points
 
                 mse_total += mse_current.sum().item()
                 mae_total += mae_current.sum().item()
@@ -182,7 +182,7 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
                 )
 
             with open(
-                foldername + "/generated_outputs_nsample" + str(nsample) + ".pk", "wb"
+                foldername + "/generated_outputs_nsample" + str(nsample) + "_epoch" + str(epoch) + ".pk", "wb"
             ) as f:
                 all_target = torch.cat(all_target, dim=0)
                 all_evalpoint = torch.cat(all_evalpoint, dim=0)

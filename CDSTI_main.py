@@ -111,20 +111,8 @@ class CDSTI_base(nn.Module):
 
         return extra_info
 
-    def calc_loss_valid(
-        self, observed_data, cond_mask, observed_mask, side_info, extra_tem_feature, is_train
-    ):
-        loss_sum = 0
-        for t in range(self.num_steps):  # calculate loss for all t
-            loss = self.calc_loss(
-                observed_data, cond_mask, observed_mask, side_info, extra_tem_feature, is_train, set_t=t
-            )
-            loss_sum += loss.detach()
-        return loss_sum / self.num_steps
-
     def calc_loss(
-        self, observed_data, missing_mask, actual_mask, side_info, extra_tem_feature, is_train, set_t=-1
-    ):
+        self, observed_data, missing_mask, actual_mask, side_info, extra_tem_feature, extra_spa_feature):
         B, K, L = observed_data.shape
 
         t = torch.randint(0, self.num_steps, [B]).to(self.device)
@@ -140,7 +128,7 @@ class CDSTI_base(nn.Module):
         total_input = self.set_input_to_diffmodel(noisy_data, observed_data, missing_mask)
 
         # predicted noise
-        predicted = self.diffmodel(total_input, side_info, extra_tem_feature, t)  # (B,K,L)
+        predicted = self.diffmodel(total_input, side_info, extra_tem_feature, extra_spa_feature, t)  # (B,K,L)
 
         residual = (noise - predicted) * target_mask
         num_eval = target_mask.sum()
@@ -155,7 +143,7 @@ class CDSTI_base(nn.Module):
 
         return total_input
 
-    def impute(self, observed_data, cond_mask, side_info, extra_tem_feature, n_samples):
+    def impute(self, observed_data, cond_mask, side_info, extra_tem_feature, extra_spa_feature, n_samples):
         B, K, L = observed_data.shape
 
         imputed_samples = torch.zeros(B, n_samples, K, L).to(self.device)
@@ -173,7 +161,7 @@ class CDSTI_base(nn.Module):
                 cond_obs = (cond_mask * observed_data).unsqueeze(1)
                 noisy_target = ((1-cond_mask) * sample).unsqueeze(1)
                 diff_input = torch.cat([cond_obs, noisy_target], dim=1)  # (B,2,K,L)
-                predicted = self.diffmodel(diff_input, side_info, extra_tem_feature, torch.tensor([s]).to(self.device))
+                predicted = self.diffmodel(diff_input, side_info, extra_tem_feature, extra_spa_feature, torch.tensor([s]).to(self.device))
 
                 coeff = self.alpha_hat[s-self.sampling_shrink_interval]
 
@@ -209,7 +197,7 @@ class CDSTI_base(nn.Module):
         return copy_mask
         
 
-    def forward(self, batch, is_train=1):
+    def forward(self, batch):
         (
             actual_data, # x_0 (B,K,L)
             _, # (B,K,L)
@@ -217,16 +205,22 @@ class CDSTI_base(nn.Module):
             timestamps, # (B,L)
             dow_arr, # (B,L)
             tod_arr, # (B,L)
+            spa_mat, # (B,K,K)
         ) = self.process_data(batch)
 
         missing_mask = self.sm_mask_generator(actual_mask, self.config["model"]["missing_rate"])
 
         side_info = self.get_side_info(missing_mask)
-        extra_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
 
-        loss_func = self.calc_loss if is_train == 1 else self.calc_loss_valid
+        # extra temporal feature shape: (B, *, K, L)
+        extra_tem_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
 
-        return loss_func(actual_data, missing_mask, actual_mask, side_info, extra_feature, is_train)
+        # extra spatial feature shape: (B, K, K, L)  # (B,K,K) -> (B,K,K,1) -> (B,K,K,L)
+        extra_spa_feature = spa_mat.unsqueeze(-1).expand(-1, -1, -1, tod_arr.shape[-1])
+
+        loss_func = self.calc_loss
+
+        return loss_func(actual_data, missing_mask, actual_mask, side_info, extra_tem_feature, extra_spa_feature)
 
     def evaluate(self, batch, n_samples):
         (
@@ -236,6 +230,7 @@ class CDSTI_base(nn.Module):
             timestamps,
             dow_arr,
             tod_arr,
+            spa_mat, # (B,K,K)
         ) = self.process_data(batch)
 
         with torch.no_grad():
@@ -246,11 +241,14 @@ class CDSTI_base(nn.Module):
             observed_data = actual_data.clone()
 
             target_mask = observed_mask - cond_mask
-            extra_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
+            extra_tem_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
+
+            # extra spatial feature shape: (B, K, K, L)  # (B,K,K) -> (B,K,K,1) -> (B,K,K,L)
+            extra_spa_feature = spa_mat.unsqueeze(-1).expand(-1, -1, -1, tod_arr.shape[-1])
 
             side_info = self.get_side_info(cond_mask)
 
-            samples = self.impute(observed_data, cond_mask, side_info, extra_feature, n_samples)
+            samples = self.impute(observed_data, cond_mask, side_info, extra_tem_feature, extra_spa_feature, n_samples)
 
             # for i in range(len(cut_length)):  # to avoid double evaluation
             #     target_mask[i, ..., 0 : cut_length[i].item()] = 0
@@ -268,10 +266,11 @@ class CDSTI(CDSTI_base):
         timestamps = batch["timestamps"].to(self.device).float()
         dow_arr = batch["dow_arr"].to(self.device).long()
         tod_arr = batch["tod_arr"].to(self.device).long()
+        spatial_mat = batch["spatial_inp"].to(self.device).float() # (K,K)
 
         # (B.L,K) to (B,K,L)
         actual_data = actual_data.permute(0, 2, 1) 
         actual_mask = actual_mask.permute(0, 2, 1)
         missing_mask = missing_mask.permute(0, 2, 1)
         
-        return (actual_data, actual_mask, missing_mask, timestamps, dow_arr, tod_arr)
+        return (actual_data, actual_mask, missing_mask, timestamps, dow_arr, tod_arr, spatial_mat)

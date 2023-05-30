@@ -19,10 +19,16 @@ class Get_Dataset(Dataset):
         D: number of days
         L_d: number of time intervals in a day
         """
+        self.spatial_inp = None
         if dataset_name == "PeMS7":
             path = "./dataset/" + dataset_name + "/PeMSD7_V_228.csv"
             data_arr = pd.read_csv(path, header=None).values # (D*L_d, K)
             date_range = pd.date_range(start='2012-05-01', end='2012-06-30', freq='D')
+            
+            path = "./dataset/" + dataset_name + "/PeMSD7_W_228.csv"
+            weight_A = pd.read_csv(path, header=None).values # (K, K) weighted adjacency matrix
+            weight_A_norm = (weight_A - weight_A.mean()) / weight_A.std()
+            self.spatial_inp = weight_A_norm
             # Select weekdays and exclude weekends
             weekdays = date_range[date_range.weekday < 5].dayofweek
             dow_arr = weekdays.to_numpy() # 44 weekdays
@@ -114,10 +120,6 @@ class Get_Dataset(Dataset):
         self.dow_arrs = self._split_into_subsequences(dow_arr, seq_len)
         self.tod_arrs = self._split_into_subsequences(tod_arr, seq_len)
 
-        for each_subseq in self.subsequences:
-           if ((each_subseq * self.training_std + self.training_mean) < 0).sum() > 0:
-               print("nagetive")
-
     def _meanstd_calculator(self, arr, mask):
         _, dim2 = arr.shape # arr's shape (D*L_d, K)
         mean = np.zeros(dim2)
@@ -165,6 +167,8 @@ class Get_Dataset(Dataset):
         actual_mask = self.actual_masks[index]
         dow_arr = self.dow_arrs[index] # shape (seq_len, )
         tod_arr = self.tod_arrs[index] # shape (seq_len, )
+        if self.spatial_inp.any():
+            spatial_inp = self.spatial_inp
 
         sample = {
             "actual_data": subseq,
@@ -172,7 +176,8 @@ class Get_Dataset(Dataset):
             "actual_mask": actual_mask,
             "timestamps": np.arange(subseq.shape[0]),
             "dow_arr": dow_arr,
-            "tod_arr": tod_arr
+            "tod_arr": tod_arr,
+            "spatial_inp": spatial_inp
             }
         
         return sample

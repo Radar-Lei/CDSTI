@@ -72,6 +72,18 @@ if args.modelfolder == "":
     print('model folder:', args.modelfolder)
     os.makedirs(args.modelfolder, exist_ok=True)
 
+if args.dataset == "PeMS7":
+    spatial_dim = 228
+    config["diffusion"]["spatial_dim"] = 228
+elif args.dataset == "Hangzhou":
+    spatial_dim = 80
+elif args.dataset == "Seattle":
+    spatial_dim = 323
+elif args.dataset == "Portland":
+    spatial_dim = 1156
+else:
+    print("No such dataset")
+
 with open(foldername + "config.json", "w") as f:
     json.dump(config, f, indent=4)
 
@@ -91,16 +103,6 @@ with open(foldername + "config.json", "w") as f:
     test_ratio=config['train']['test_ratio']
     )
 
-if args.dataset == "PeMS7":
-    spatial_dim = 228
-elif args.dataset == "Hangzhou":
-    spatial_dim = 80
-elif args.dataset == "Seattle":
-    spatial_dim = 323
-elif args.dataset == "Portland":
-    spatial_dim = 1156
-else:
-    print("No such dataset")
 
 model = CDSTI(config, config['model']['device'], spatial_dim).to(config['model']['device'])
 num_params = sum(p.numel() for p in model.parameters())

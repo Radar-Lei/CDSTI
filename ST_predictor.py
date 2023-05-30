@@ -52,6 +52,7 @@ class diff_CDI(nn.Module):
     def __init__(self, config, inputdim=2):
         super().__init__()
         self.channels = config["channels"]
+        self.spa_dim = config["spatial_dim"]
 
         # embedding for diffusion step
         self.diffusion_embedding = DiffusionEmbedding(
@@ -68,6 +69,7 @@ class diff_CDI(nn.Module):
             [
                 ResidualBlock(
                     side_dim=config["side_dim"],
+                    extra_spa_dim = self.spa_dim,
                     extra_temporal_dim = config["extra_temporal_dim"],
                     channels=self.channels,
                     diffusion_embedding_dim=config["diffusion_embedding_dim"],
@@ -77,7 +79,7 @@ class diff_CDI(nn.Module):
             ]
         )
 
-    def forward(self, x, side_info, extra_tem_feature, diffusion_step):
+    def forward(self, x, side_info, extra_tem_feature, extra_spa_feature, diffusion_step):
         '''
         B: batch size, K: number of features, L: sequence length.
         if conditional, x is of shape (B,2,K,L) including x_{0}^{co} and x_{t}^{ta}
@@ -95,7 +97,7 @@ class diff_CDI(nn.Module):
 
         skip = []
         for layer in self.residual_layers:
-            x, skip_connection = layer(x, side_info, extra_tem_feature, diffusion_step_embbed)
+            x, skip_connection = layer(x, side_info, extra_tem_feature, extra_spa_feature, diffusion_step_embbed)
             skip.append(skip_connection)
 
         x = torch.sum(torch.stack(skip), dim=0) / math.sqrt(len(self.residual_layers))
@@ -108,11 +110,13 @@ class diff_CDI(nn.Module):
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, side_dim, extra_temporal_dim, channels, diffusion_embedding_dim, nheads):
+    def __init__(self, side_dim, extra_spa_dim, extra_temporal_dim, channels, diffusion_embedding_dim, nheads):
         super().__init__()
         self.extra_tem_dim = extra_temporal_dim
         self.diffusion_projection = nn.Linear(diffusion_embedding_dim, channels)
-        self.extra_temporal_projection = nn.Linear(extra_temporal_dim, channels)
+
+        self.fusion_projection = Conv1d_with_init(extra_spa_dim + extra_temporal_dim + channels, channels,1)
+
         self.cond_projection = Conv1d_with_init(side_dim, 2 * channels, 1)
         self.mid_projection = Conv1d_with_init(channels, 2 * channels, 1)
         self.output_projection = Conv1d_with_init(channels, 2 * channels, 1)
@@ -138,19 +142,25 @@ class ResidualBlock(nn.Module):
         y = y.reshape(B, L, channel, K).permute(0, 2, 3, 1).reshape(B, channel, K * L)
         return y
 
-    def forward(self, x, cond_info, extra_tem_feature, diffusion_emb):
+    def forward(self, x, cond_info, extra_tem_feature, extra_spa_feature, diffusion_emb):
         B, channel, K, L = x.shape
         base_shape = x.shape
         x = x.reshape(B, channel, K * L) # (B,channel,K*L)
 
         # project embedded diffusion steps from (B, diffusion_embedding_dim) to (B,channel) then (B,channel,1)
         diffusion_emb = self.diffusion_projection(diffusion_emb).unsqueeze(-1)  
-        # from (B, extra_temporal_dim, K, L) to (B, extra_temporal_dim, K*L) then to (B, K*L, extra_temporal_dim)
-        extra_tem_feature = extra_tem_feature.reshape(B, self.extra_tem_dim, K * L).permute(0, 2, 1)
-        extra_tem_feature = self.extra_temporal_projection(extra_tem_feature) # (B,K*L,channel)
-        extra_tem_feature = extra_tem_feature.permute(0, 2, 1) # (B,channel,K*L)
+        # from (B, extra_temporal_dim, K, L) to (B, extra_temporal_dim, K*L)
+        extra_tem_feature = extra_tem_feature.reshape(B, self.extra_tem_dim, K * L)
+        # from (B, K, K, L) to (B, K, K*L)
+        extra_spa_feature = extra_spa_feature.reshape(B, K, K * L)
 
-        y = x + diffusion_emb + extra_tem_feature
+        y = x + diffusion_emb # x is of shape (B, channel, K*L)
+        
+        # shape (B, channel + extra_temporal_dim + K, K*L)
+        y = torch.cat([y, extra_tem_feature, extra_spa_feature], dim=1) 
+
+        # use a 1x1 project x from that to (B, channel, K*L)
+        y = self.fusion_projection(y) # (B,channel,K*L)
 
         y = self.forward_time(y, base_shape)
         y = self.forward_feature(y, base_shape)  # (B,channel,K*L)

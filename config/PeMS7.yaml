@@ -1,12 +1,13 @@
 
-#args for Guangzhou dataset
+# When num_steps is small, beta_end should be large, e.g., num_steps=100, beta_end=0.2
+# vice versa, e.g., num_steps=1000, beta_end=0.002
 
 train:
-  epochs: 200
+  epochs: 1000
   batch_size: 8
   lr: 3.0e-3
   nsample: 100
-  test_ratio: 0.01
+  test_ratio: 0.05
   
 diffusion:
   layers: 2
@@ -21,9 +22,9 @@ diffusion:
 model:
   device: "cuda:0"
   timeemb: 32
-  featureemb: 32
+  featureemb: 64
   missing_pattern: "RSM"
-  missing_rate: 0.1
+  missing_rate: 0.2
   sequence_length: 18
   toddim: 288
   dowemb: 32
