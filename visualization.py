@@ -90,28 +90,5 @@ def plot_subplots(
         if row == -1:
             plt.setp(axes[-1, col], xlabel='time')
 
-    plt.savefig(f"{path}{epoch}.png")
+    plt.savefig(f"{path}epoch({epoch}).png")
     plt.close()
-
-
-
-if "__main__" == __name__:
-    dataset = 'Guangzhou' #choose dataset
-    unnormalization = True
-
-    nsample = 100 # number of generated sample
-    foldername = "Guangzhou_20230525_152915_missing_pattern(RSM)_misssing_rate(0.1)"
-    path = './save/' + foldername + '/generated_outputs_nsample' + str(nsample) + '.pk' 
-
-    samples, SM_inds, K, L, all_target_np, all_given_np, all_evalpoint_np =  process_data(path, foldername, unnormalization)
-
-    quantiles_imp = quantile(samples, all_target_np, all_given_np)
-
-    ###traffic speed###
-    dataind = 15 #change to visualize a different sample
-
-    num_subplots = len(SM_inds)
-    ncols = 4
-    nrows = (num_subplots + ncols - 1) // ncols
-
-    plot_subplots(nrows, ncols, K, L, dataind, quantiles_imp, all_target_np, all_evalpoint_np, all_given_np)

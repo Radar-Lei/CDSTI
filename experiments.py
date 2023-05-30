@@ -16,8 +16,8 @@ python experiments.py --dataset Portland --baseconfig Portland.yaml --missingpat
 """
 
 parser = argparse.ArgumentParser(description='Conditional Diffusion Model for Spatiotemporal Traffic Data Imputation')
-parser.add_argument('--dataset', type=str, default='PeMS7', help='dataset name:PeMS7, Hangzhou, Seattle, or Portland')
-parser.add_argument('--baseconfig', type=str, default='PeMS7.yaml', help='base config file')
+parser.add_argument('--dataset', type=str, default='PeMS7_V_1026', help='dataset name:PeMS7, Hangzhou, Seattle, or Portland')
+parser.add_argument('--baseconfig', type=str, default='PeMS7_V_1026.yaml', help='base config file')
 
 parser.add_argument(
     '--missingpattern', 
@@ -72,9 +72,13 @@ if args.modelfolder == "":
     print('model folder:', args.modelfolder)
     os.makedirs(args.modelfolder, exist_ok=True)
 
-if args.dataset == "PeMS7":
+if args.dataset == "PeMS7_V_228":
     spatial_dim = 228
     config["diffusion"]["spatial_dim"] = 228
+elif args.dataset == "PeMS7_V_1026":
+    spatial_dim = 1026
+    config["diffusion"]["spatial_dim"] = 1026
+
 elif args.dataset == "Hangzhou":
     spatial_dim = 80
 elif args.dataset == "Seattle":

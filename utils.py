@@ -259,4 +259,16 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
             
             os.makedirs(figs_path, exist_ok=True)
 
-            plot_subplots(nrows, ncols, K, L, dataind, quantiles_imp, all_target_np, all_evalpoint_np, all_given_np, figs_path, epoch)
+            plot_subplots(
+                nrows, 
+                ncols, 
+                K, 
+                L, 
+                dataind, 
+                quantiles_imp, 
+                all_target_np, 
+                all_evalpoint_np, 
+                all_given_np, 
+                figs_path, 
+                epoch
+                )
