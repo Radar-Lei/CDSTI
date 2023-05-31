@@ -135,10 +135,6 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
         all_generated_samples = []
         with tqdm(test_loader, mininterval=1.0, maxinterval=50.0) as it:
             for batch_no, test_batch in enumerate(it, start=1):
-
-                if batch_no == 1:
-                    print(test_batch['actual_data'][0,:,:])
-
                 output = model.evaluate(test_batch, nsample)
 
                 samples, c_target, eval_points, observed_points, observed_time = output
