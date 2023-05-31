@@ -245,10 +245,10 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
             quantiles_imp = quantile(samples, all_target_np, all_given_np)
 
             ###traffic speed###
-            dataind = 5 #change to visualize a different sample
+            dataind = 0 #change to visualize a different sample
 
             num_subplots = len(SM_inds)
-            ncols = 4
+            ncols = 3
             nrows = (num_subplots + ncols - 1) // ncols
 
             figs_path = foldername + "/figs/"

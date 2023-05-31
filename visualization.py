@@ -73,13 +73,18 @@ def plot_subplots(
         df = df[df.y != 0]
         df2 = pd.DataFrame({"x":np.arange(0,L), "val":all_target_np[dataind,:,k], "y":all_given_np[dataind,:,k]})
         df2 = df2[df2.y != 0]
-        row = k // 4
-        col = k % 4
+        row = k // ncols
+        col = k % ncols
         axes[row][col].plot(range(0,L), quantiles_imp[2][dataind,:,k], color = 'g',linestyle='solid',label='CDI')
         axes[row][col].fill_between(range(0,L), quantiles_imp[0][dataind,:,k],quantiles_imp[4][dataind,:,k],
                         color='g', alpha=0.3)
-        axes[row][col].plot(df.x,df.val, color = 'b',marker = 'o', linestyle='None')
+        axes[row][col].plot(df.x,df.val, color = 'b',marker = 'o', linestyle='None', markersize=1)
         axes[row][col].plot(df2.x,df2.val, color = 'r',marker = 'x', linestyle='None')
+        
+        # Get the minimum y-value from the data
+        min_y = min(np.min(df.val), np.min(df2.val))
+        axes[row][col].set_ylim(bottom=min_y if min_y >= 0 else 0)  # Set the y-axis lower limit
+
         if col == 0:
             plt.setp(axes[row, 0], ylabel='value')
         if row == -1:
