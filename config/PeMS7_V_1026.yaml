@@ -4,15 +4,15 @@
 
 train:
   epochs: 1000
-  batch_size: 8
+  batch_size: 4
   lr: 3.0e-3
   nsample: 100
-  test_ratio: 0.02
+  test_ratio: 0.01
   
 diffusion:
-  layers: 2
-  channels: 128
-  nheads: 4
+  layers: 4
+  channels: 64
+  nheads: 8
   diffusion_embedding_dim: 32
   beta_start: 0.0001
   beta_end: 0.2
@@ -25,7 +25,7 @@ model:
   featureemb: 64
   missing_pattern: "RSM"
   missing_rate: 0.1
-  sequence_length: 18
+  sequence_length: 12
   toddim: 288
   dowemb: 32
   todemb: 32
