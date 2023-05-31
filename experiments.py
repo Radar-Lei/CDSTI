@@ -16,8 +16,8 @@ python experiments.py --dataset Portland --baseconfig Portland.yaml --missingpat
 """
 
 parser = argparse.ArgumentParser(description='Conditional Diffusion Model for Spatiotemporal Traffic Data Imputation')
-parser.add_argument('--dataset', type=str, default='Guangzhou', help='dataset name:Guangzhou, Hangzhou, Seattle, or Portland')
-parser.add_argument('--baseconfig', type=str, default='Guangzhou.yaml', help='base config file')
+parser.add_argument('--dataset', type=str, default='PeMS7_V_228', help='dataset name:Guangzhou, Hangzhou, Seattle, or Portland')
+parser.add_argument('--baseconfig', type=str, default='PeMS7_V_228.yaml', help='base config file')
 
 parser.add_argument(
     '--missingpattern', 
@@ -62,7 +62,7 @@ config["model"]["save_folder"] = args.modelfolder
 # folder to save the model
 if args.modelfolder == "":
     foldername = (
-        "./save/" + args.dataset + "_" + current_time + "_missing_pattern(" + 
+        "./save_csdi/" + args.dataset + "_" + current_time + "_missing_pattern(" + 
         config["model"]["missing_pattern"] + ")_" + "misssing_rate(" + str(config['model']['missing_rate']) + ")" + "/"
     )
     args.modelfolder = foldername
@@ -99,6 +99,8 @@ elif args.dataset == "Seattle":
     spatial_dim = 323
 elif args.dataset == "Portland":
     spatial_dim = 1156
+elif args.dataset == "PeMS7_V_228":
+    spatial_dim = 228
 else:
     print("No such dataset")
 

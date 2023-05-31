@@ -45,6 +45,17 @@ class Get_Dataset(Dataset):
             dim = np.array([dim1, 96, 31])
             data_mat = mat2ten(data_arr, dim, 0) # of shape (K, L_d, D) ndarray
             dow_arr = self._generate_dow_array('2021/01/01', '2021/01/31')[0]
+            
+        elif dataset_name == "PeMS7_V_228":
+            path = "./dataset/PeMS7/" + "PeMSD7_V_228.csv"
+            data_arr = pd.read_csv(path, header=None).values # (D*L_d, K)
+            date_range = pd.date_range(start='2012-05-01', end='2012-06-30', freq='D')
+            # Select weekdays and exclude weekends
+            weekdays = date_range[date_range.weekday < 5].dayofweek
+            dow_arr = weekdays.to_numpy() # 44 weekdays
+            L_d = 288 # interval 5 min
+
+            data_mat = np.reshape(data_arr, (len(dow_arr), L_d, -1)).transpose(2, 1, 0) # (K, L_d, D)
         else:
             print(0)
 

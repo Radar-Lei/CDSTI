@@ -247,7 +247,7 @@ class CDSTI_base(nn.Module):
             cond_mask = missing_mask
             observed_mask = actual_mask
             observed_tp = timestamps
-            observed_data = actual_data
+            observed_data = actual_data.clone()
 
             target_mask = observed_mask - cond_mask
             extra_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
@@ -259,7 +259,7 @@ class CDSTI_base(nn.Module):
             # for i in range(len(cut_length)):  # to avoid double evaluation
             #     target_mask[i, ..., 0 : cut_length[i].item()] = 0
 
-        return samples, observed_data, target_mask, observed_mask, observed_tp
+        return samples, actual_data, target_mask, observed_mask, observed_tp
 
 class CDSTI(CDSTI_base):
     def __init__(self, config, device, spatial_dim):

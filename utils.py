@@ -160,7 +160,7 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
                 ) * std
 
                 # for computing APE, i.e., MAPE, we do not need the std to unnormalize the data
-                ape_current = torch.abs((samples_median.values * std - c_target * std) / (c_target * std ) ) * eval_points
+                ape_current = torch.abs((samples_median.values * std - c_target * std) / (c_target * std + mean) ) * eval_points
 
                 mse_total += mse_current.sum().item()
                 mae_total += mae_current.sum().item()
@@ -178,7 +178,7 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
                 )
 
             with open(
-                foldername + "/generated_outputs_nsample" + str(nsample) + ".pk", "wb"
+                foldername + "/generated_outputs_nsample" + str(nsample) + "_epoch" + str(epoch) + ".pk", "wb"
             ) as f:
                 all_target = torch.cat(all_target, dim=0)
                 all_evalpoint = torch.cat(all_evalpoint, dim=0)
@@ -245,7 +245,7 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
             quantiles_imp = quantile(samples, all_target_np, all_given_np)
 
             ###traffic speed###
-            dataind = 15 #change to visualize a different sample
+            dataind = 5 #change to visualize a different sample
 
             num_subplots = len(SM_inds)
             ncols = 4
