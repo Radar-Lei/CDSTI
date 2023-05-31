@@ -80,10 +80,12 @@ def plot_subplots(
                         color='g', alpha=0.3)
         axes[row][col].plot(df.x,df.val, color = 'b',marker = 'o', linestyle='None', markersize=1)
         axes[row][col].plot(df2.x,df2.val, color = 'r',marker = 'x', linestyle='None')
-        
+
         # Get the minimum y-value from the data
-        min_y = min(np.min(df.val), np.min(df2.val))
-        axes[row][col].set_ylim(bottom=min_y if min_y >= 0 else 0)  # Set the y-axis lower limit
+        min_y = min(np.min(df.val), np.min(df2.val), np.min(quantiles_imp[0][dataind,:,k]))
+        max_y = min(np.max(df.val), np.max(df2.val), np.max(quantiles_imp[4][dataind,:,k]))
+        axes[row][col].set_ylim(bottom= min_y - min_y*0.2)  # Set the y-axis lower limit
+        axes[row][col].set_ylim(top= max_y + max_y*0.2)  # Set the y-axis upper limit
 
         if col == 0:
             plt.setp(axes[row, 0], ylabel='value')
