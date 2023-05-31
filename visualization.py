@@ -38,8 +38,8 @@ def process_data(
         # notice train_mean[SM_inds] should be all zeros, but here they have values
         train_mean = train_mean[SM_inds].detach().cpu().numpy()
         train_std = train_std[SM_inds].detach().cpu().numpy()
-        train_std_cuda = torch.from_numpy(train_std).cuda()
-        train_mean_cuda = torch.from_numpy(train_mean).cuda()
+        train_std_cuda = torch.from_numpy(train_std).cuda(device=samples.device)
+        train_mean_cuda = torch.from_numpy(train_mean).cuda(device=samples.device)
         all_target_np=(all_target_np*train_std+train_mean)
         samples=(samples*train_std_cuda+train_mean_cuda)
     return samples, SM_inds, K, L, all_target_np, all_given_np, all_evalpoint_np
