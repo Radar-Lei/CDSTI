@@ -122,7 +122,7 @@ class ResidualBlock(nn.Module):
         self.output_projection = Conv1d_with_init(channels, 2 * channels, 1)
 
         self.time_layer = get_torch_trans(heads=nheads, layers=1, channels=channels)
-        self.feature_layer = get_torch_trans(heads=nheads, layers=1, channels=channels)
+        self.feature_layer = get_torch_trans(heads=nheads, layers=2, channels=channels)
 
     def forward_time(self, y, base_shape):
         B, channel, K, L = base_shape

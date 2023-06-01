@@ -104,7 +104,7 @@ with open(foldername + "config.json", "w") as f:
     dataset_name=args.dataset, 
     save_folder=args.modelfolder,
     seq_length = config['model']['sequence_length'],
-    test_ratio=config['train']['test_ratio']
+    test_sample_num=config['train']['test_sample_num']
     )
 
 
