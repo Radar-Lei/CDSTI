@@ -93,6 +93,7 @@ def train(
                 epoch = epoch_no,
                 foldername=foldername,
             )
+            torch.save(model.state_dict(), output_path)
         
         if (foldername != "") and (avg_loss < best_valid_loss):
             torch.save(model.state_dict(), output_path)
