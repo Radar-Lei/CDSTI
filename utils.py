@@ -24,7 +24,7 @@ def train(
     test_loader=None,
     mean = 0,
     std = 1,
-    valid_epoch_interval=5,
+    valid_epoch_interval=200,
     early_stopping_patience = 10,
     foldername="",
 ):
@@ -82,7 +82,7 @@ def train(
             # lr_scheduler.step()
             scheduler.step(avg_loss)
 
-        if  ((epoch_no + 1) % valid_epoch_interval == 0) or (epoch_no < 4):
+        if  config["epochs"] - epoch_no < 5:
             evaluate(
                 model,
                 test_loader,
@@ -94,8 +94,9 @@ def train(
                 foldername=foldername,
             )
         
-        if foldername != "":
+        if (foldername != "") and (avg_loss < best_valid_loss):
             torch.save(model.state_dict(), output_path)
+            best_valid_loss = avg_loss
 
 def quantile_loss(target, forecast, q: float, eval_points) -> float:
     return 2 * torch.sum(
