@@ -59,7 +59,7 @@ def quantile(samples, all_target_np, all_given_np):
 def plot_subplots(
         nrows, 
         ncols, 
-        K, 
+        num_subplots, 
         L, 
         dataind, 
         quantiles_imp, 
@@ -73,7 +73,7 @@ def plot_subplots(
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols,figsize=(24.0, 3.5*nrows))
     fig.delaxes(axes[-1][-1])
 
-    for k in range(K):
+    for k in range(num_subplots):
         df = pd.DataFrame({"x":np.arange(0,L*dataind), "val":all_target_np[:dataind,:,k].reshape(-1), "y":all_evalpoint_np[:dataind,:,k].reshape(-1)})
         df = df[df.y != 0]
         df2 = pd.DataFrame({"x":np.arange(0,L*dataind), "val":all_target_np[:dataind,:,k].reshape(-1), "y":all_given_np[:dataind,:,k].reshape(-1)})

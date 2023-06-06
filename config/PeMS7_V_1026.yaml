@@ -3,16 +3,17 @@
 # vice versa, e.g., num_steps=1000, beta_end=0.002
 
 train:
-  epochs: 1000
+  epochs: 800
   batch_size: 4
   lr: 3.0e-3
   nsample: 100
-  test_ratio: 0.01
+  test_sample_num: 32
+  daily_num_samples: 16
   
 diffusion:
-  layers: 4
+  layers: 2
   channels: 64
-  nheads: 8
+  nheads: 4
   diffusion_embedding_dim: 32
   beta_start: 0.0001
   beta_end: 0.2
@@ -22,10 +23,10 @@ diffusion:
 model:
   device: "cuda:0"
   timeemb: 32
-  featureemb: 64
+  featureemb: 32
   missing_pattern: "RSM"
-  missing_rate: 0.1
-  sequence_length: 12
+  missing_rate: 0.3
+  sequence_length: 18
   toddim: 288
   dowemb: 32
   todemb: 32

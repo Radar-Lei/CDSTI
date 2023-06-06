@@ -82,10 +82,11 @@ def train(
             # lr_scheduler.step()
             scheduler.step(avg_loss)
 
-        if  (epoch_no + 1) % valid_epoch_interval == 0:
+        if  ((epoch_no + 1) % valid_epoch_interval == 0) or (epoch_no < 4):
             evaluate(
                 model,
                 test_loader,
+                config,
                 nsample=config['nsample'],
                 mean=mean,
                 std=std,
@@ -122,7 +123,7 @@ def calc_quantile_CRPS(target, forecast, eval_points, mean, std):
     return CRPS.item() / len(quantiles)
 
 
-def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, foldername=""):
+def evaluate(model, test_loader, config, nsample=100, mean=0, std=1, epoch = 1, foldername=""):
 
     with torch.no_grad():
         model.eval()
@@ -249,9 +250,11 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
             quantiles_imp = quantile(samples, all_target_np, all_given_np)
 
             ###traffic speed###
-            dataind = 16 # here 16, since seq_len=18, we plot the first day, 16 * 18 = 288 for PeMSD7
+            dataind = config['daily_num_samples'] # here 16, since seq_len=18, we plot the first day, 16 * 18 = 288 for PeMSD7
 
-            num_subplots = len(SM_inds)
+            # by default, num_subplots = K, but we can change it to plot less subplots
+            num_subplots = min(K, 60)
+
             ncols = 3
             nrows = (num_subplots + ncols - 1) // ncols
 
@@ -262,7 +265,7 @@ def evaluate(model, test_loader, nsample=100, mean=0, std=1, epoch = 1, folderna
             plot_subplots(
                 nrows, 
                 ncols, 
-                K, 
+                num_subplots, 
                 L, 
                 dataind, 
                 quantiles_imp, 

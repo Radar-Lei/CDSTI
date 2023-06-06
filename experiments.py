@@ -16,8 +16,8 @@ python experiments.py --dataset Portland --baseconfig Portland.yaml --missingpat
 """
 
 parser = argparse.ArgumentParser(description='Conditional Diffusion Model for Spatiotemporal Traffic Data Imputation')
-parser.add_argument('--dataset', type=str, default='PeMS7_V_228', help='dataset name:PeMS7, Hangzhou, Seattle, or Portland')
-parser.add_argument('--baseconfig', type=str, default='PeMS7_V_228.yaml', help='base config file')
+parser.add_argument('--dataset', type=str, default='PeMS7_V_1026', help='dataset name:PeMS7_V_228, PeMS7_V_1026, Hangzhou, Seattle, or Portland')
+parser.add_argument('--baseconfig', type=str, default='PeMS7_V_1026.yaml', help='base config file')
 
 parser.add_argument(
     '--missingpattern', 
@@ -54,10 +54,6 @@ if args.baseconfig == "":
     config["model"]["sequence_length"] = args.seqlen
     config["train"]["nsample"] = args.nsample
 
-# json.dumps() method can be used to convert a Python dictionary into a JSON string.
-# indent: indent level in json file
-print(json.dumps(config, indent=4))
-
 config["model"]["save_folder"] = args.modelfolder
 # folder to save the model
 if args.modelfolder == "":
@@ -78,7 +74,6 @@ if args.dataset == "PeMS7_V_228":
 elif args.dataset == "PeMS7_V_1026":
     spatial_dim = 1026
     config["diffusion"]["spatial_dim"] = 1026
-
 elif args.dataset == "Hangzhou":
     spatial_dim = 80
 elif args.dataset == "Seattle":
@@ -87,6 +82,14 @@ elif args.dataset == "Portland":
     spatial_dim = 1156
 else:
     print("No such dataset")
+
+daily_num_samples = int(config["model"]["toddim"] / config["model"]["sequence_length"]) # 288 / 18 = 16
+config["train"]["daily_num_samples"] = daily_num_samples
+config["train"]["test_sample_num"] = daily_num_samples * 1 # the number of test samples, daily_num_samples * #days
+
+# json.dumps() method can be used to convert a Python dictionary into a JSON string.
+# indent: indent level in json file
+print(json.dumps(config, indent=4))
 
 with open(foldername + "config.json", "w") as f:
     json.dump(config, f, indent=4)
@@ -106,7 +109,6 @@ with open(foldername + "config.json", "w") as f:
     seq_length = config['model']['sequence_length'],
     test_sample_num=config['train']['test_sample_num']
     )
-
 
 model = CDSTI(config, config['model']['device'], spatial_dim).to(config['model']['device'])
 num_params = sum(p.numel() for p in model.parameters())
