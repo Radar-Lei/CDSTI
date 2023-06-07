@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from BiTrans_predictor import diff_CDI
 
-class CDSTI_base(nn.Module):
+class CDSI_base(nn.Module):
     def __init__(self, spatial_dim, config, device):
         super().__init__()
         self.device = device
@@ -13,27 +13,18 @@ class CDSTI_base(nn.Module):
 
         self.emb_time_dim = config["model"]["timeemb"]
         self.emb_feature_dim = config["model"]["featureemb"]
-        self.emb_dow_dim = config["model"]["dowemb"]
-        self.emb_tod_dim = config["model"]["todemb"]
 
         self.sampling_shrink_interval = config["model"]["sampling_shrink_interval"]
 
         # + 1 for considering the conditional mask as one of the side info
         self.emb_side_dim = self.emb_feature_dim + 1
-        self.emd_extra_tem_dim = self.emb_time_dim + self.emb_dow_dim + self.emb_tod_dim
+        self.emd_extra_tem_dim = self.emb_time_dim
 
         # feature dimension
         self.embed_layer = nn.Embedding(
             num_embeddings=self.spatial_dim, embedding_dim=self.emb_feature_dim
         )
         
-        self.dow_emb_layer = nn.Embedding(
-            num_embeddings=7, embedding_dim=self.emb_dow_dim
-        )
-
-        self.tod_emb_layer = nn.Embedding(
-            num_embeddings=config['model']['toddim'], embedding_dim=self.emb_tod_dim
-        )
 
         # parameters for diffusion models
         config_diff = config["diffusion"]
@@ -94,22 +85,15 @@ class CDSTI_base(nn.Module):
 
         return side_info
     
-    def extra_temporal_feature(self, observed_tp, conda_mask, dow_arr, tod_arr):
-        B, K, L = conda_mask.shape
+    def extra_temporal_feature(self, observed_tp, conda_mask):
+        _, K, _ = conda_mask.shape
 
         time_embed = self.time_embedding(observed_tp, self.emb_time_dim)  # (B,L,emb)
         time_embed = time_embed.unsqueeze(2).expand(-1, -1, K, -1) # (B,L,emd) -> (B,L,1,emb) -> (B,L,K,time_emb)
 
-        dow_embed = self.dow_emb_layer(dow_arr) # (B,L,emb)
-        dow_embed = dow_embed.unsqueeze(2).expand(-1, -1, K, -1) # (B,L,emb) -> (B,L,1,emb) -> (B,L,K,dow_emb)
+        time_embed = time_embed.permute(0, 3, 2, 1)  # (B,time_emb,K,L)
 
-        tod_embed = self.tod_emb_layer(tod_arr) # (B,L,emb)
-        tod_embed = tod_embed.unsqueeze(2).expand(-1, -1, K, -1) # (B,L,emb) -> (B,L,1,emb) -> (B,L,K,tod_emb)
-
-        extra_info = torch.cat([time_embed, dow_embed, tod_embed], dim=-1)  # (B,L,K,*)
-        extra_info = extra_info.permute(0, 3, 2, 1)  # (B,*,K,L)
-
-        return extra_info
+        return time_embed
 
     def calc_loss_valid(
         self, observed_data, cond_mask, observed_mask, side_info, extra_tem_feature, is_train
@@ -130,7 +114,7 @@ class CDSTI_base(nn.Module):
         side_info, 
         extra_tem_feature
         ):
-        B, K, L = observed_data.shape
+        B, _, _ = observed_data.shape
 
         t = torch.randint(0, self.num_steps, [B]).to(self.device)
 
@@ -222,14 +206,12 @@ class CDSTI_base(nn.Module):
             _, # (B,K,L)
             actual_mask, # use missing_mask as the actual_mask during model training
             timestamps, # (B,L)
-            dow_arr, # (B,L)
-            tod_arr, # (B,L)
         ) = self.process_data(batch)
 
         missing_mask = self.sm_mask_generator(actual_mask, self.config["model"]["missing_rate"])
 
         side_info = self.get_side_info(missing_mask)
-        extra_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
+        extra_feature = self.extra_temporal_feature(timestamps, missing_mask)
 
         loss_func = self.calc_loss
 
@@ -241,8 +223,6 @@ class CDSTI_base(nn.Module):
             actual_mask,
             missing_mask,
             timestamps,
-            dow_arr,
-            tod_arr,
         ) = self.process_data(batch)
 
         with torch.no_grad():
@@ -252,7 +232,8 @@ class CDSTI_base(nn.Module):
             observed_data = actual_data.clone()
 
             target_mask = observed_mask - cond_mask
-            extra_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
+
+            extra_feature = self.extra_temporal_feature(timestamps, missing_mask)
 
             side_info = self.get_side_info(cond_mask)
 
@@ -263,20 +244,18 @@ class CDSTI_base(nn.Module):
 
         return samples, actual_data, target_mask, observed_mask, observed_tp
 
-class CDSTI(CDSTI_base):
+class CDSI(CDSI_base):
     def __init__(self, config, device, spatial_dim):
-        super(CDSTI, self).__init__(spatial_dim, config, device)
+        super(CDSI, self).__init__(spatial_dim, config, device)
         
     def process_data(self, batch):
         actual_data = batch["actual_data"].to(self.device).float()
         actual_mask = batch["actual_mask"].to(self.device).float()
         missing_mask = batch["missing_mask"].to(self.device).float()
         timestamps = batch["timestamps"].to(self.device).float()
-        dow_arr = batch["dow_arr"].to(self.device).long()
-        tod_arr = batch["tod_arr"].to(self.device).long()
 
         actual_data = actual_data.permute(0, 2, 1)
         missing_mask = missing_mask.permute(0, 2, 1)
         actual_mask = actual_mask.permute(0, 2, 1)
         
-        return (actual_data, actual_mask, missing_mask, timestamps, dow_arr, tod_arr)
+        return (actual_data, actual_mask, missing_mask, timestamps)

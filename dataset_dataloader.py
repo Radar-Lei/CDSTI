@@ -59,10 +59,7 @@ class Get_Dataset(Dataset):
         else:
             print(0)
 
-        dim_K, dim2_L_d, dim3_D = data_mat.shape
-
-        dow_arr = np.repeat(dow_arr, dim2_L_d) # from (D, ) to (D*L_d, )
-        tod_arr = np.concatenate([np.arange(dim2_L_d)] * dim3_D) # creating (L_d,) and then repeat D times to (D*L_d, )
+        dim_K, _, dim3_D = data_mat.shape
 
         # reshap the data_arr to (D*L_d, K)
         # to maintain the order, first transpose (K, L_d, D) to (D, L_d, K), notice the feature dim need to place 
@@ -112,8 +109,6 @@ class Get_Dataset(Dataset):
         self.subsequences = self._split_into_subsequences(data_arr_norm, seq_len)
         self.actual_masks = self._split_into_subsequences(actual_mask, seq_len) # each mask in ob_masks has shape (seq_len, K)
         self.missing_masks = self._split_into_subsequences(missing_mask, seq_len) 
-        self.dow_arrs = self._split_into_subsequences(dow_arr, seq_len)
-        self.tod_arrs = self._split_into_subsequences(tod_arr, seq_len)
 
     def _meanstd_calculator(self, arr, mask):
         _, dim2 = arr.shape # arr's shape (D*L_d, K)
@@ -160,16 +155,12 @@ class Get_Dataset(Dataset):
         subseq = self.subsequences[index] # subseq has shape (seq_len, K) ndarray
         missing_mask = self.missing_masks[index]
         actual_mask = self.actual_masks[index]
-        dow_arr = self.dow_arrs[index] # shape (seq_len, )
-        tod_arr = self.tod_arrs[index] # shape (seq_len, )
 
         sample = {
             "actual_data": subseq,
             "missing_mask": missing_mask,
             "actual_mask": actual_mask,
             "timestamps": np.arange(subseq.shape[0]),
-            "dow_arr": dow_arr,
-            "tod_arr": tod_arr
             }
         
         return sample
@@ -182,7 +173,7 @@ def get_dataloader(
         dataset_name="", 
         save_folder="", 
         seq_length=144,
-        test_sample_num= 16
+        test_sample_num= 1
                 ):
     
     dataset = Get_Dataset(

@@ -5,7 +5,7 @@ import datetime
 import yaml
 import json
 
-from CDSTI_main import CDSTI
+from CDSI_main import CDSI
 from dataset_dataloader import get_dataloader
 from utils import train
 
@@ -88,7 +88,7 @@ with open(foldername + "config.json", "w") as f:
     dataset_name=args.dataset, 
     save_folder=args.modelfolder,
     seq_length = config['model']['sequence_length'],
-    test_ratio=config['train']['test_ratio']
+    test_sample_num=config['train']['test_sample_num']
     )
 
 if args.dataset == "Guangzhou":
@@ -104,7 +104,7 @@ elif args.dataset == "PeMS7_V_228":
 else:
     print("No such dataset")
 
-model = CDSTI(config, config['model']['device'], spatial_dim).to(config['model']['device'])
+model = CDSI(config, config['model']['device'], spatial_dim).to(config['model']['device'])
 num_params = sum(p.numel() for p in model.parameters())
 print("Number of parameters in current model:", num_params)
 
