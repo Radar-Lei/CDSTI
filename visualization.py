@@ -93,3 +93,4 @@ def plot_subplots(
             plt.setp(axes[-1, col], xlabel='time')
 
     plt.savefig(f"{path}{epoch}.png")
+    plt.close()
