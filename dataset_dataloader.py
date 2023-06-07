@@ -182,7 +182,7 @@ def get_dataloader(
         dataset_name="", 
         save_folder="", 
         seq_length=144,
-        test_ratio=0.1
+        test_sample_num= 16
                 ):
     
     dataset = Get_Dataset(
@@ -195,11 +195,10 @@ def get_dataloader(
     
     num_samples = len(dataset)
     indices = np.arange(num_samples)
-    np.random.seed(1000)
-    np.random.shuffle(indices)
+    # np.random.seed(1000)
+    # np.random.shuffle(indices)
 
-    test_size = int(test_ratio * num_samples)
-    test_size = int(test_ratio * num_samples)
+    test_size = int(test_sample_num)
     test_indices = indices[:test_size]
 
     test_subset = Subset(dataset, test_indices)
