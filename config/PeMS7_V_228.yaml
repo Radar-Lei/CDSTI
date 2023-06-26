@@ -3,11 +3,12 @@
 # vice versa, e.g., num_steps=1000, beta_end=0.002
 
 train:
-  epochs: 800
+  epochs: 1200
   batch_size: 16
   lr: 3.0e-3
   nsample: 100
   test_sample_num: 32 # num of samples for one day is toddim / sequence_length, here 32 are two days
+  daily_num_samples: 16
   
 diffusion:
   layers: 2
@@ -24,7 +25,7 @@ model:
   timeemb: 32
   featureemb: 32
   missing_pattern: "RSM"
-  missing_rate: 0.3
+  missing_rate: 0.1
   sequence_length: 18
   toddim: 288
   dowemb: 32

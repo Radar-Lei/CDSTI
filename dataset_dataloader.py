@@ -64,9 +64,26 @@ class Get_Dataset(Dataset):
             D = len(date_range)
             L_d = 288
 
-            modified_columns = [col[1:] for col in data_arr_df.columns]
-            sorted_location_info = location_info.loc[location_info['CabName'].isin(modified_columns)]
+            # the sensor id's in data_arr_df actually has duplicated sensor ids
+            distance_df = pd.DataFrame({'SensorName': [col[1:] for col in data_arr_df.columns]})
+            dist_merged_df = pd.merge(distance_df, location_info[['CabName', 'Lat', 'Lon']], left_on='SensorName', right_on='CabName', how='left')
 
+            # drop the redundant 'CabName' column
+            dist_merged_df = dist_merged_df.drop('CabName', axis=1)
+
+            # Compute the adjacency matrix
+            adj_matrix = np.zeros((len(dist_merged_df), len(dist_merged_df)))
+            for i in range(len(dist_merged_df)):
+                for j in range(i+1, len(dist_merged_df)):
+                    lat1, lon1 = dist_merged_df.iloc[i]['Lat'], dist_merged_df.iloc[i]['Lon']
+                    lat2, lon2 = dist_merged_df.iloc[j]['Lat'], dist_merged_df.iloc[j]['Lon']
+                    dist = self._haversine(lat1, lon1, lat2, lon2)
+                    adj_matrix[i,j] = dist
+                    adj_matrix[j,i] = dist
+
+            weight_A_norm = (adj_matrix - adj_matrix.mean()) / adj_matrix.std()
+            self.spatial_inp = weight_A_norm
+            
             data_mat = np.reshape(data_arr_df.values, (D, L_d, -1)).transpose(2, 1, 0) # (K, L_d, D)
 
         elif dataset_name == "Portland":
@@ -134,6 +151,16 @@ class Get_Dataset(Dataset):
         self.missing_masks = self._split_into_subsequences(missing_mask, seq_len) 
         self.dow_arrs = self._split_into_subsequences(dow_arr, seq_len)
         self.tod_arrs = self._split_into_subsequences(tod_arr, seq_len)
+
+    def _haversine(self, lat1, lon1, lat2, lon2):
+        R = 6371.0  # Earth radius in kilometers
+        lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1-a))
+        d = R * c
+        return d
 
     def _meanstd_calculator(self, arr, mask):
         _, dim2 = arr.shape # arr's shape (D*L_d, K)

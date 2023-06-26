@@ -232,7 +232,6 @@ def evaluate(model, test_loader, config, nsample=100, mean=0, std=1, epoch = 1, 
 
             (
                 samples, 
-                SM_inds, 
                 K, 
                 L, 
                 all_target_np, 
