@@ -81,6 +81,9 @@ elif args.dataset == "Seattle":
     config["diffusion"]["spatial_dim"] = 323
 elif args.dataset == "Portland":
     spatial_dim = 1156
+elif args.dataset == "Competition":
+    spatial_dim = 40
+    config["diffusion"]["spatial_dim"] = 40
 else:
     print("No such dataset")
 
