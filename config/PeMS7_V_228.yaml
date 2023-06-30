@@ -26,7 +26,7 @@ model:
   featureemb: 32
   missing_pattern: "RSM"
   missing_rate: 0.1
-  sequence_length: 18
+  sequence_length: 96
   toddim: 288
   dowemb: 32
   todemb: 32

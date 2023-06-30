@@ -16,8 +16,8 @@ python experiments.py --dataset Portland --baseconfig Portland.yaml --missingpat
 """
 
 parser = argparse.ArgumentParser(description='Conditional Diffusion Model for Spatiotemporal Traffic Data Imputation')
-parser.add_argument('--dataset', type=str, default='Seattle', help='dataset name:PeMS7_V_228, PeMS7_V_1026, Hangzhou, Seattle, or Portland')
-parser.add_argument('--baseconfig', type=str, default='Seattle.yaml', help='base config file')
+parser.add_argument('--dataset', type=str, default='PeMS7_V_228', help='dataset name:PeMS7_V_228, PeMS7_V_1026, Hangzhou, Seattle, or Portland')
+parser.add_argument('--baseconfig', type=str, default='PeMS7_V_228.yaml', help='base config file')
 
 parser.add_argument(
     '--missingpattern', 

@@ -123,7 +123,6 @@ class CDSTI_base(nn.Module):
         noisy_data = (current_alpha ** 0.5) * observed_data + ((1.0 - current_alpha) ** 0.5) * noise
 
         target_mask = actual_mask - missing_mask
-        # if unconditional, total_input = x_{t} = [x_{t}^{ta}, x_{t}^{co}], shape (B,1,K,L)
         # if conditional, total_input = [x_{t}^{ta}, cond_obs], cond_obs is x_{0}^{co}, shape (B,2,K,L)
         total_input = self.set_input_to_diffmodel(noisy_data, observed_data, missing_mask)
 
