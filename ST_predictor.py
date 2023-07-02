@@ -10,7 +10,7 @@ def get_torch_trans(heads=8, layers=1, channels=64):
     return nn.TransformerEncoder(encoder_layer, num_layers=layers)
 
 def FFT_for_Period(x, k=2):
-    # [B, T, C]
+    # [B, L, d_model]
     xf = torch.fft.rfft(x, dim=1)
     # find period by amplitudes
     frequency_list = abs(xf).mean(0).mean(-1)
@@ -49,22 +49,22 @@ class Inception_Block_V1(nn.Module):
         return res
 
 class TimesBlock(nn.Module):
-    def __init__(self, configs):
+    def __init__(self, seq_len, d_model, top_k = 5, d_ff = 64, num_kernels = 6):
         super(TimesBlock, self).__init__()
-        self.seq_len = configs.seq_len
-        self.pred_len = configs.pred_len
-        self.k = configs.top_k
+        self.seq_len = seq_len
+
+        self.k = top_k
         # parameter-efficient design
         self.conv = nn.Sequential(
-            Inception_Block_V1(configs.d_model, configs.d_ff,
-                               num_kernels=configs.num_kernels),
+            Inception_Block_V1(d_model, d_ff,
+                               num_kernels=num_kernels),
             nn.GELU(),
-            Inception_Block_V1(configs.d_ff, configs.d_model,
-                               num_kernels=configs.num_kernels)
+            Inception_Block_V1(d_ff, d_model,
+                               num_kernels=num_kernels)
         )
 
     def forward(self, x):
-        B, T, N = x.size()
+        B, T, N = x.size() # B, T, N <--> batch_size, seq_len, d_model
         period_list, period_weight = FFT_for_Period(x, self.k)
 
         res = []
@@ -73,7 +73,7 @@ class TimesBlock(nn.Module):
             # padding
             if (self.seq_len + self.pred_len) % period != 0:
                 length = (
-                                 ((self.seq_len + self.pred_len) // period) + 1) * period
+                                 (self.seq_len // period) + 1) * period
                 padding = torch.zeros([x.shape[0], (length - (self.seq_len + self.pred_len)), x.shape[2]]).to(x.device)
                 out = torch.cat([x, padding], dim=1)
             else:
@@ -133,6 +133,79 @@ class DiffusionEmbedding(nn.Module):
         table = steps * div_term  # (T,dim)
         table = torch.cat([torch.sin(table), torch.cos(table)], dim=1)  # (T,dim*2)
         return table
+
+class ResidualBlock(nn.Module):
+    def __init__(self, side_dim, extra_spa_dim, extra_temporal_dim, channels, diffusion_embedding_dim, nheads):
+        super().__init__()
+        self.extra_tem_dim = extra_temporal_dim
+        self.diffusion_projection = nn.Linear(diffusion_embedding_dim, channels)
+
+        self.fusion_projection = Conv1d_with_init(extra_spa_dim + extra_temporal_dim + channels, channels,1)
+
+        self.cond_projection = Conv1d_with_init(side_dim, 2 * channels, 1)
+        self.mid_projection = Conv1d_with_init(channels, 2 * channels, 1)
+        self.output_projection = Conv1d_with_init(channels, 2 * channels, 1)
+
+        self.time_layer = TimesBlock()
+        self.feature_layer = get_torch_trans(heads=nheads, layers=2, channels=channels)
+
+    def forward_time(self, y, base_shape):
+        B, channel, K, L = base_shape
+        if L == 1:
+            return y
+        #
+        y = y.reshape(B, channel, K, L).permute(0, 2, 3, 1).reshape(B * K, L, channel)
+        y = self.time_layer(y.permute(2, 0, 1)).permute(1, 2, 0)
+        y = y.reshape(B, K, channel, L).permute(0, 2, 1, 3).reshape(B, channel, K * L)
+        return y
+
+    def forward_feature(self, y, base_shape):
+        B, channel, K, L = base_shape
+        if K == 1:
+            return y
+        y = y.reshape(B, channel, K, L).permute(0, 3, 1, 2).reshape(B * L, channel, K)
+        y = self.feature_layer(y.permute(2, 0, 1)).permute(1, 2, 0)
+        y = y.reshape(B, L, channel, K).permute(0, 2, 3, 1).reshape(B, channel, K * L)
+        return y
+
+    def forward(self, x, cond_info, extra_tem_feature, extra_spa_feature, diffusion_emb):
+        B, channel, K, L = x.shape
+        base_shape = x.shape
+        x = x.reshape(B, channel, K * L) # (B,channel,K*L)
+
+        # project embedded diffusion steps from (B, diffusion_embedding_dim) to (B,channel) then (B,channel,1)
+        diffusion_emb = self.diffusion_projection(diffusion_emb).unsqueeze(-1)  
+        # from (B, extra_temporal_dim, K, L) to (B, extra_temporal_dim, K*L)
+        extra_tem_feature = extra_tem_feature.reshape(B, self.extra_tem_dim, K * L)
+        # from (B, K, K, L) to (B, K, K*L)
+        extra_spa_feature = extra_spa_feature.reshape(B, K, K * L)
+
+        y = x + diffusion_emb # x is of shape (B, channel, K*L)
+        
+        # shape (B, channel + extra_temporal_dim + K, K*L)
+        y = torch.cat([y, extra_tem_feature, extra_spa_feature], dim=1) 
+
+        # use a 1x1 project x from that to (B, channel, K*L)
+        y = self.fusion_projection(y) # (B,channel,K*L)
+
+        y = self.forward_time(y, base_shape)
+        y = self.forward_feature(y, base_shape)  # (B,channel,K*L)
+        y = self.mid_projection(y)  # (B,2*channel,K*L)
+
+        _, cond_dim, _, _ = cond_info.shape
+        cond_info = cond_info.reshape(B, cond_dim, K * L)
+        cond_info = self.cond_projection(cond_info)  # (B,2*channel,K*L)
+        y = y + cond_info
+
+        gate, filter = torch.chunk(y, 2, dim=1)
+        y = torch.sigmoid(gate) * torch.tanh(filter)  # (B,channel,K*L)
+        y = self.output_projection(y)
+
+        residual, skip = torch.chunk(y, 2, dim=1)
+        x = x.reshape(base_shape)
+        residual = residual.reshape(base_shape)
+        skip = skip.reshape(base_shape)
+        return (x + residual) / math.sqrt(2.0), skip
 
 class diff_CDI(nn.Module):
     def __init__(self, config, inputdim=2):
@@ -194,75 +267,3 @@ class diff_CDI(nn.Module):
         x = x.reshape(B, K, L)
         return x
 
-
-class ResidualBlock(nn.Module):
-    def __init__(self, side_dim, extra_spa_dim, extra_temporal_dim, channels, diffusion_embedding_dim, nheads):
-        super().__init__()
-        self.extra_tem_dim = extra_temporal_dim
-        self.diffusion_projection = nn.Linear(diffusion_embedding_dim, channels)
-
-        self.fusion_projection = Conv1d_with_init(extra_spa_dim + extra_temporal_dim + channels, channels,1)
-
-        self.cond_projection = Conv1d_with_init(side_dim, 2 * channels, 1)
-        self.mid_projection = Conv1d_with_init(channels, 2 * channels, 1)
-        self.output_projection = Conv1d_with_init(channels, 2 * channels, 1)
-
-        self.time_layer = get_torch_trans(heads=nheads, layers=1, channels=channels)
-        self.feature_layer = get_torch_trans(heads=nheads, layers=2, channels=channels)
-
-    def forward_time(self, y, base_shape):
-        B, channel, K, L = base_shape
-        if L == 1:
-            return y
-        y = y.reshape(B, channel, K, L).permute(0, 2, 1, 3).reshape(B * K, channel, L)
-        y = self.time_layer(y.permute(2, 0, 1)).permute(1, 2, 0)
-        y = y.reshape(B, K, channel, L).permute(0, 2, 1, 3).reshape(B, channel, K * L)
-        return y
-
-    def forward_feature(self, y, base_shape):
-        B, channel, K, L = base_shape
-        if K == 1:
-            return y
-        y = y.reshape(B, channel, K, L).permute(0, 3, 1, 2).reshape(B * L, channel, K)
-        y = self.feature_layer(y.permute(2, 0, 1)).permute(1, 2, 0)
-        y = y.reshape(B, L, channel, K).permute(0, 2, 3, 1).reshape(B, channel, K * L)
-        return y
-
-    def forward(self, x, cond_info, extra_tem_feature, extra_spa_feature, diffusion_emb):
-        B, channel, K, L = x.shape
-        base_shape = x.shape
-        x = x.reshape(B, channel, K * L) # (B,channel,K*L)
-
-        # project embedded diffusion steps from (B, diffusion_embedding_dim) to (B,channel) then (B,channel,1)
-        diffusion_emb = self.diffusion_projection(diffusion_emb).unsqueeze(-1)  
-        # from (B, extra_temporal_dim, K, L) to (B, extra_temporal_dim, K*L)
-        extra_tem_feature = extra_tem_feature.reshape(B, self.extra_tem_dim, K * L)
-        # from (B, K, K, L) to (B, K, K*L)
-        extra_spa_feature = extra_spa_feature.reshape(B, K, K * L)
-
-        y = x + diffusion_emb # x is of shape (B, channel, K*L)
-        
-        # shape (B, channel + extra_temporal_dim + K, K*L)
-        y = torch.cat([y, extra_tem_feature, extra_spa_feature], dim=1) 
-
-        # use a 1x1 project x from that to (B, channel, K*L)
-        y = self.fusion_projection(y) # (B,channel,K*L)
-
-        y = self.forward_time(y, base_shape)
-        y = self.forward_feature(y, base_shape)  # (B,channel,K*L)
-        y = self.mid_projection(y)  # (B,2*channel,K*L)
-
-        _, cond_dim, _, _ = cond_info.shape
-        cond_info = cond_info.reshape(B, cond_dim, K * L)
-        cond_info = self.cond_projection(cond_info)  # (B,2*channel,K*L)
-        y = y + cond_info
-
-        gate, filter = torch.chunk(y, 2, dim=1)
-        y = torch.sigmoid(gate) * torch.tanh(filter)  # (B,channel,K*L)
-        y = self.output_projection(y)
-
-        residual, skip = torch.chunk(y, 2, dim=1)
-        x = x.reshape(base_shape)
-        residual = residual.reshape(base_shape)
-        skip = skip.reshape(base_shape)
-        return (x + residual) / math.sqrt(2.0), skip
