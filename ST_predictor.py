@@ -70,13 +70,13 @@ class TimesBlock(nn.Module):
         for i in range(self.k):
             period = period_list[i]
             # padding
-            if self.seq_len % period != 0:
+            if (self.seq_len + self.pred_len) % period != 0:
                 length = (
                                  (self.seq_len // period) + 1) * period
-                padding = torch.zeros([x.shape[0], (length - self.seq_len ), x.shape[2]]).to(x.device)
+                padding = torch.zeros([x.shape[0], (length - (self.seq_len + self.pred_len)), x.shape[2]]).to(x.device)
                 out = torch.cat([x, padding], dim=1)
             else:
-                length = self.seq_len
+                length = (self.seq_len + self.pred_len)
                 out = x
             # reshape
             out = out.reshape(B, length // period, period,
@@ -85,7 +85,7 @@ class TimesBlock(nn.Module):
             out = self.conv(out)
             # reshape back
             out = out.permute(0, 2, 3, 1).reshape(B, -1, N)
-            res.append(out[:, :self.seq_len, :])
+            res.append(out[:, :(self.seq_len + self.pred_len), :])
         res = torch.stack(res, dim=-1)
         # adaptive aggregation
         period_weight = F.softmax(period_weight, dim=1)
@@ -146,7 +146,7 @@ class ResidualBlock(nn.Module):
         self.output_projection = Conv1d_with_init(channels, 2 * channels, 1)
 
         self.time_layer = TimesBlock(seq_len, channels)
-        # self.feature_layer = get_torch_trans(heads=nheads, layers=2, channels=channels)
+        self.feature_layer = get_torch_trans(heads=nheads, layers=2, channels=channels)
 
     def forward_time(self, y, base_shape):
         B, channel, K, L = base_shape
@@ -188,7 +188,7 @@ class ResidualBlock(nn.Module):
         y = self.fusion_projection(y) # (B,channel,K*L)
 
         y = self.forward_time(y, base_shape)
-        # y = self.forward_feature(y, base_shape)  # (B,channel,K*L)
+        y = self.forward_feature(y, base_shape)  # (B,channel,K*L)
         y = self.mid_projection(y)  # (B,2*channel,K*L)
 
         _, cond_dim, _, _ = cond_info.shape

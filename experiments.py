@@ -87,6 +87,9 @@ elif args.dataset == "Competition":
 else:
     print("No such dataset")
 
+daily_num_samples = int(config["model"]["toddim"] / config["model"]["sequence_length"]) # 288 / 18 = 16
+config["train"]["daily_num_samples"] = daily_num_samples
+config["train"]["test_sample_num"] = daily_num_samples * 1 # the number of test samples, daily_num_samples * #days
 
 # json.dumps() method can be used to convert a Python dictionary into a JSON string.
 # indent: indent level in json file
@@ -97,6 +100,7 @@ with open(foldername + "config.json", "w") as f:
 
 (
     train_loader,
+    test_loader,
     tensor_mean, 
     tensor_std
 ) = get_dataloader(
@@ -107,20 +111,7 @@ with open(foldername + "config.json", "w") as f:
     dataset_name=args.dataset, 
     save_folder=args.modelfolder,
     seq_length = config['model']['sequence_length'],
-    )
-
-(
-    test_loader,
-    _, 
-    _
-) = get_dataloader(
-    config['train']['batch_size'], 
-    config['model']['device'], 
-    config['model']['missing_pattern'], 
-    config['model']['missing_rate'], 
-    dataset_name=args.dataset, 
-    save_folder=args.modelfolder,
-    seq_length = config['model']['sequence_length'],
+    test_sample_num=config['train']['test_sample_num']
     )
 
 model = CDSTI(config, config['model']['device'], spatial_dim).to(config['model']['device'])

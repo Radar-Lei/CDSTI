@@ -1,11 +1,10 @@
 import numpy as np
 from scipy.io import loadmat
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, Subset
 import torch
 import pickle
-from utils import mat2ten, time_features
+from utils import mat2ten
 import pandas as pd
-
 
 class Get_Dataset(Dataset):
     def __init__(
@@ -13,10 +12,7 @@ class Get_Dataset(Dataset):
             missing_rate=0.1,
             dataset_name="", 
             save_folder="", 
-            seq_len=36,
-            timeenc=0,
-            is_train=True,
-            timeenc_freq='h'
+            seq_len=36
                 ):
         """
         K: number of features, number of nodes
@@ -24,29 +20,21 @@ class Get_Dataset(Dataset):
         L_d: number of time intervals in a day
         """
         self.spatial_inp = None
-        self.seq_len = seq_len
-        self.timeenc = timeenc
-        self.is_train = is_train
-
         if dataset_name == "PeMS7_V_228":
             path = "./dataset/PeMS7/" + "PeMSD7_V_228.csv"
             data_arr = pd.read_csv(path, header=None).values # (D*L_d, K)
-
-            df_stamp = []
-            for day in pd.date_range(start='2012-05-01', end='2012-06-30', freq='B'):
-                date_index = pd.date_range(start=day, end=day + pd.offsets.Day(), freq='5min')[:-1]
-                df_stamp.append(pd.Series(date_index))
-            df_stamp = pd.concat(df_stamp)
-            df_stamp = pd.DataFrame(df_stamp).rename(columns={0:'date'})
-
+            date_range = pd.date_range(start='2012-05-01', end='2012-06-30', freq='D')
+            
             path = "./dataset/PeMS7/" + "PeMSD7_W_228.csv"
             weight_A = pd.read_csv(path, header=None).values # (K, K) weighted adjacency matrix
             weight_A_norm = (weight_A - weight_A.mean()) / weight_A.std()
             self.spatial_inp = weight_A_norm
             # Select weekdays and exclude weekends
-
+            weekdays = date_range[date_range.weekday < 5].dayofweek
+            dow_arr = weekdays.to_numpy() # 44 weekdays
             L_d = 288 # interval 5 min
 
+            data_mat = np.reshape(data_arr, (len(dow_arr), L_d, -1)).transpose(2, 1, 0) # (K, L_d, D)
         elif dataset_name == "PeMS7_V_1026":
             path = "./dataset/PeMS7/" + "PeMSD7_V_1026.csv"
             data_arr = pd.read_csv(path, header=None).values # (D*L_d, K)
@@ -108,25 +96,20 @@ class Get_Dataset(Dataset):
         else:
             print(0)
 
-        DL_d, dim_K = data_arr.shape
+        dim_K, dim2_L_d, dim3_D = data_mat.shape
 
-        num_train = int(int(DL_d * 0.9) - (int(DL_d * 0.9) % L_d))
+        dow_arr = np.repeat(dow_arr, dim2_L_d) # from (D, ) to (D*L_d, )
+        tod_arr = np.concatenate([np.arange(dim2_L_d)] * dim3_D) # creating (L_d,) and then repeat D times to (D*L_d, )
 
-        border1s = [0, num_train]
-        border2s = [num_train, DL_d]
-
-        if is_train:
-            boarder1 = border1s[0]
-            boarder2 = border2s[0]
-            data_arr = data_arr[boarder1:boarder2]
-        else:
-            boarder1 = border1s[1]
-            boarder2 = border2s[1]
-            data_arr = data_arr[boarder1:boarder2]
+        # reshap the data_arr to (D*L_d, K)
+        # to maintain the order, first transpose (K, L_d, D) to (D, L_d, K), notice the feature dim need to place 
+        # D first and then L_d since 
+        # we want to the order as day first and then time points in a day, 
+        data_arr = np.transpose(data_mat, (2, 1, 0)).reshape((data_mat.shape[2] * data_mat.shape[1], data_mat.shape[0]))
 
         data_arr[np.isnan(data_arr)] = 0
 
-        self.actual_mask = 1 - (data_arr == 0) # shape (D*L_d, K)
+        actual_mask = 1 - (data_arr == 0) # shape (D*L_d, K)
         
         if missing_pattern == 'RSM':
             np.random.seed(1000)
@@ -136,6 +119,7 @@ class Get_Dataset(Dataset):
 
         elif missing_pattern == 'NRSM':
             np.random.seed(1000)
+            data_mat_missing = data_mat * np.round(np.random.rand(dim_K, dim3_D) + 0.5 - missing_rate)[:, None, :]
         else:
             # this missing pattern should be called mixed, but not usre if it's meaningful
             """
@@ -144,37 +128,29 @@ class Get_Dataset(Dataset):
             performance/power under this senario.
             """
             data_mat_missing = data_arr
-
-        if self.timeenc == 0:
-            df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
-            df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
-            df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
-            df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
-            data_stamp = df_stamp.drop(['date'], 1).values
-            data_stamp = data_stamp[boarder1:boarder2]
-        elif self.timeenc == 1:
-            data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=timeenc_freq)
-            data_stamp = data_stamp.transpose(1, 0) # from (time_emb_dim, L) to (L, time_emb_dim)
-            data_stamp = data_stamp[boarder1:boarder2]
-
-        self.missing_mask = 1 - (data_arr_missing == 0) # shape (D*L_d, K), 1 indicates observed, 0 indicates missing
+        
+        missing_mask = 1 - (data_arr_missing == 0) # shape (D*L_d, K), 1 indicates observed, 0 indicates missing
         # save the missing mask for method comparison
         save_path = save_folder + '/' + 'tensor_missing.npz'
-        np.savez(save_path, self.missing_mask)
+        np.savez(save_path, missing_mask)
 
         # both are of shape (K, )
-        if self.is_train:
-            self.training_mean, self.training_std = self._meanstd_calculator(data_arr, self.actual_mask) 
-            path = save_folder + "/meanstd.pk"
-            with open(path, "wb") as f:
-                pickle.dump([self.training_mean, self.training_std], f)
-        else:
-            path = save_folder + "/meanstd.pk"
-            with open(path, "wb") as f:
-                self.training_mean, self.training_std = pickle.load(f)
+        self.training_mean, self.training_std = self._meanstd_calculator(data_arr, actual_mask) 
 
         # normalization using mean and std of training data
-        self.data_arr_norm = ((data_arr - self.training_mean) / self.training_std) * self.actual_mask
+        data_arr_norm = ((data_arr - self.training_mean) / self.training_std) * actual_mask
+
+        path = save_folder + "/meanstd.pk"
+        with open(path, "wb") as f:
+            pickle.dump([self.training_mean, self.training_std], f)
+
+        # split into subsequences, each subsequence has shape (seq_len, K).
+        # use data_arr to keep all data, data_arr_missing is only used for creating missing masks
+        self.subsequences = self._split_into_subsequences(data_arr_norm, seq_len)
+        self.actual_masks = self._split_into_subsequences(actual_mask, seq_len) # each mask in ob_masks has shape (seq_len, K)
+        self.missing_masks = self._split_into_subsequences(missing_mask, seq_len) 
+        self.dow_arrs = self._split_into_subsequences(dow_arr, seq_len)
+        self.tod_arrs = self._split_into_subsequences(tod_arr, seq_len)
 
     def _haversine(self, lat1, lon1, lat2, lon2):
         R = 6371.0  # Earth radius in kilometers
@@ -197,25 +173,42 @@ class Get_Dataset(Dataset):
             std[k] = k_arr.std()
         
         return mean, std
+            
+    def _split_into_subsequences(self, arr, l):
+        LK = arr.shape # arr could 1D or 2D
+        L = LK[0]
+        n_subsequences = L // l
+        last_subsequence_length = L % l
+
+        subsequences = np.split(arr[:n_subsequences * l], n_subsequences)
+
+        if last_subsequence_length > 0:
+            last_subsequence = arr[-l:]
+            subsequences.append(last_subsequence)
+
+        return subsequences
     
+    def _generate_dow_array(self, start_date, end_date):
+        # Generate the date range
+        date_range = pd.date_range(start=start_date, end=end_date)
+
+        # Generate the day of week array
+        day_of_week = date_range.dayofweek
+
+        # Convert to numpy array
+        day_of_week_array = day_of_week.to_numpy()
+
+        return (day_of_week_array, date_range)
+
     def __len__(self):
-        if self.is_train:
-            return len(self.data_arr_norm) - self.seq_len + 1
-        else:
-            return int(len(self.data_arr_norm) / self.seq_len)
+        return len(self.subsequences)
 
     def __getitem__(self, index):
-        if self.is_train:
-            s_begin = index
-            s_end = s_begin + self.seq_len
-        else:
-            s_begin = index * self.seq_len
-            s_end = s_begin + self.seq_len
-
-        subseq = self.data_arr_norm[s_begin:s_end]
-        missing_mask = self.missing_mask[s_begin:s_end]
-        actual_mask = self.actual_mask[s_begin:s_end]
-
+        subseq = self.subsequences[index] # subseq has shape (seq_len, K) ndarray
+        missing_mask = self.missing_masks[index]
+        actual_mask = self.actual_masks[index]
+        dow_arr = self.dow_arrs[index] # shape (seq_len, )
+        tod_arr = self.tod_arrs[index] # shape (seq_len, )
         if self.spatial_inp.any():
             spatial_inp = self.spatial_inp
 
@@ -224,6 +217,8 @@ class Get_Dataset(Dataset):
             "missing_mask": missing_mask,
             "actual_mask": actual_mask,
             "timestamps": np.arange(subseq.shape[0]),
+            "dow_arr": dow_arr,
+            "tod_arr": tod_arr,
             "spatial_inp": spatial_inp
             }
         
@@ -237,9 +232,7 @@ def get_dataloader(
         dataset_name="", 
         save_folder="", 
         seq_length=144,
-        timeenc = 1,
-        is_train = True,
-        timeenc_freq = 'h',
+        test_sample_num= 16
                 ):
     
     dataset = Get_Dataset(
@@ -247,28 +240,23 @@ def get_dataloader(
         missing_rate, 
         dataset_name, 
         save_folder, 
-        seq_length,
-        timeenc,
-        is_train,
-        timeenc_freq
+        seq_length
         )
     
-    if is_train:
-        shuffle_flag = True
-        drop_last = True
-        batch_size = 1
-    else:
-        shuffle_flag = False
-        drop_last = True
+    num_samples = len(dataset)
+    indices = np.arange(num_samples)
+    # np.random.seed(1000)
+    # np.random.shuffle(indices)
+
+    test_size = int(test_sample_num)
+    test_indices = indices[:test_size]
+
+    test_subset = Subset(dataset, test_indices)
+    
+    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_subset, batch_size=batch_size, shuffle=False)
 
     tensor_mean = torch.from_numpy(dataset.training_mean).to(device).float()
     tensor_std = torch.from_numpy(dataset.training_std).to(device).float()
 
-    data_loader = DataLoader(
-        dataset=dataset,
-        batch_size=batch_size,
-        shuffle=shuffle_flag,
-        drop_last=drop_last
-    )
-
-    return data_loader, tensor_mean, tensor_std
+    return train_loader, test_loader, tensor_mean, tensor_std
