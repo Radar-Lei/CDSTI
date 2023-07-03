@@ -4,11 +4,11 @@
 
 train:
   epochs: 1200
-  batch_size: 16
+  batch_size: 8
   lr: 3.0e-3
   nsample: 100
-  test_sample_num: 32 # num of samples for one day is toddim / sequence_length, here 32 are two days
-  daily_num_samples: 16
+  test_sample_num: 6 # num of samples for one day is toddim / sequence_length, here 32 are two days
+  daily_num_samples: 3
   
 diffusion:
   layers: 2

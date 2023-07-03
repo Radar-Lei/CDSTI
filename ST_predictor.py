@@ -70,13 +70,13 @@ class TimesBlock(nn.Module):
         for i in range(self.k):
             period = period_list[i]
             # padding
-            if (self.seq_len + self.pred_len) % period != 0:
+            if self.seq_len % period != 0:
                 length = (
                                  (self.seq_len // period) + 1) * period
-                padding = torch.zeros([x.shape[0], (length - (self.seq_len + self.pred_len)), x.shape[2]]).to(x.device)
+                padding = torch.zeros([x.shape[0], (length - self.seq_len), x.shape[2]]).to(x.device)
                 out = torch.cat([x, padding], dim=1)
             else:
-                length = (self.seq_len + self.pred_len)
+                length = self.seq_len
                 out = x
             # reshape
             out = out.reshape(B, length // period, period,
@@ -85,7 +85,7 @@ class TimesBlock(nn.Module):
             out = self.conv(out)
             # reshape back
             out = out.permute(0, 2, 3, 1).reshape(B, -1, N)
-            res.append(out[:, :(self.seq_len + self.pred_len), :])
+            res.append(out[:, :self.seq_len, :])
         res = torch.stack(res, dim=-1)
         # adaptive aggregation
         period_weight = F.softmax(period_weight, dim=1)
