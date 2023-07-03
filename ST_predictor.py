@@ -20,7 +20,6 @@ def FFT_for_Period(x, k=2):
     period = x.shape[1] // top_list
     return period, abs(xf).mean(-1)[:, top_list]
 
-
 class Inception_Block_V1(nn.Module):
     def __init__(self, in_channels, out_channels, num_kernels=6, init_weight=True):
         super(Inception_Block_V1, self).__init__()
@@ -135,7 +134,7 @@ class DiffusionEmbedding(nn.Module):
         return table
 
 class ResidualBlock(nn.Module):
-    def __init__(self, side_dim, extra_spa_dim, extra_temporal_dim, channels, diffusion_embedding_dim, nheads):
+    def __init__(self, seq_len, side_dim, extra_spa_dim, extra_temporal_dim, channels, diffusion_embedding_dim, nheads):
         super().__init__()
         self.extra_tem_dim = extra_temporal_dim
         self.diffusion_projection = nn.Linear(diffusion_embedding_dim, channels)
@@ -146,7 +145,7 @@ class ResidualBlock(nn.Module):
         self.mid_projection = Conv1d_with_init(channels, 2 * channels, 1)
         self.output_projection = Conv1d_with_init(channels, 2 * channels, 1)
 
-        self.time_layer = TimesBlock()
+        self.time_layer = TimesBlock(seq_len, channels)
         self.feature_layer = get_torch_trans(heads=nheads, layers=2, channels=channels)
 
     def forward_time(self, y, base_shape):
@@ -155,8 +154,8 @@ class ResidualBlock(nn.Module):
             return y
         #
         y = y.reshape(B, channel, K, L).permute(0, 2, 3, 1).reshape(B * K, L, channel)
-        y = self.time_layer(y.permute(2, 0, 1)).permute(1, 2, 0)
-        y = y.reshape(B, K, channel, L).permute(0, 2, 1, 3).reshape(B, channel, K * L)
+        y = self.time_layer(y)
+        y = y.reshape(B, K, L, channel).permute(0, 3, 1, 2).reshape(B, channel, K * L)
         return y
 
     def forward_feature(self, y, base_shape):
@@ -208,7 +207,7 @@ class ResidualBlock(nn.Module):
         return (x + residual) / math.sqrt(2.0), skip
 
 class diff_CDI(nn.Module):
-    def __init__(self, config, inputdim=2):
+    def __init__(self, config, seq_len, inputdim=2):
         super().__init__()
         self.channels = config["channels"]
         self.spa_dim = config["spatial_dim"]
@@ -227,6 +226,7 @@ class diff_CDI(nn.Module):
         self.residual_layers = nn.ModuleList(
             [
                 ResidualBlock(
+                    seq_len=seq_len,
                     side_dim=config["side_dim"],
                     extra_spa_dim = self.spa_dim,
                     extra_temporal_dim = config["extra_temporal_dim"],

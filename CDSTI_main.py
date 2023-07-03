@@ -43,7 +43,7 @@ class CDSTI_base(nn.Module):
         # input_dim of the noise predictor
         # if conditional, then the one input sample is (x_{0}^{co}, x_{t}^{ta}) of shape (K,L,2) 
         input_dim = 2
-        self.diffmodel = diff_CDI(config_diff, input_dim)
+        self.diffmodel = diff_CDI(config_diff, config['model']['sequence_length'], input_dim)
 
         # the num of steps for diffusion process, i.e., T
         self.num_steps = config_diff["num_steps"]
