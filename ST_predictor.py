@@ -94,6 +94,7 @@ class TimesBlock(nn.Module):
         res = torch.sum(res * period_weight, -1)
         # residual connection
         res = res + x
+        
         return res
 
 def Conv1d_with_init(in_channels, out_channels, kernel_size):
