@@ -116,10 +116,18 @@ class Get_Dataset(Dataset):
             selected_features = np.random.choice(dim_K, round(dim_K * missing_rate), replace=False)
             data_arr_missing = data_arr.copy()
             data_arr_missing[:, selected_features] = 0 # shape (D*L_d, K)
-
         elif missing_pattern == 'NRSM':
             np.random.seed(1000)
-            data_mat_missing = data_mat * np.round(np.random.rand(dim_K, dim3_D) + 0.5 - missing_rate)[:, None, :]
+        elif missing_pattern == 'RM':
+            DL_d, dim_K = data_arr.shape
+            np.random.seed(1000)
+            num_zeros = int(DL_d * dim_K * 0.5)
+            zero_indices = np.random.choice(DL_d * dim_K, num_zeros, replace=False)
+            zero_indices = np.unravel_index(zero_indices, (DL_d, dim_K))
+            data_arr_missing = data_arr.copy()
+            data_arr_missing[zero_indices] = 0 # shape (D*L_d, K)
+        elif missing_pattern == 'fixed':
+            range_
         else:
             # this missing pattern should be called mixed, but not usre if it's meaningful
             """
