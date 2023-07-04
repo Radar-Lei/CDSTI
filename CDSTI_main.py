@@ -13,8 +13,6 @@ class CDSTI_base(nn.Module):
 
         self.emb_time_dim = config["model"]["timeemb"]
         self.emb_feature_dim = config["model"]["featureemb"]
-        self.emb_dow_dim = config["model"]["dowemb"]
-        self.emb_tod_dim = config["model"]["todemb"]
 
         self.sampling_shrink_interval = config["model"]["sampling_shrink_interval"]
 
@@ -27,13 +25,6 @@ class CDSTI_base(nn.Module):
             num_embeddings=self.spatial_dim, embedding_dim=self.emb_feature_dim
         )
         
-        self.dow_emb_layer = nn.Embedding(
-            num_embeddings=7, embedding_dim=self.emb_dow_dim
-        )
-
-        self.tod_emb_layer = nn.Embedding(
-            num_embeddings=config['model']['toddim'], embedding_dim=self.emb_tod_dim
-        )
 
         # parameters for diffusion models
         config_diff = config["diffusion"]
@@ -265,8 +256,6 @@ class CDSTI(CDSTI_base):
         actual_mask = batch["actual_mask"].to(self.device).float()
         missing_mask = batch["missing_mask"].to(self.device).float()
         timestamps = batch["timestamps"].to(self.device).float()
-        dow_arr = batch["dow_arr"].to(self.device).long()
-        tod_arr = batch["tod_arr"].to(self.device).long()
         spatial_mat = batch["spatial_inp"].to(self.device).float() # (K,K)
 
         # (B.L,K) to (B,K,L)
@@ -274,4 +263,4 @@ class CDSTI(CDSTI_base):
         actual_mask = actual_mask.permute(0, 2, 1)
         missing_mask = missing_mask.permute(0, 2, 1)
         
-        return (actual_data, actual_mask, missing_mask, timestamps, dow_arr, tod_arr, spatial_mat)
+        return (actual_data, actual_mask, missing_mask, timestamps, spatial_mat)

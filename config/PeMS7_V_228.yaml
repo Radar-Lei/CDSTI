@@ -28,7 +28,6 @@ model:
   missing_rate: 0.3
   sequence_length: 96
   toddim: 288
-  dowemb: 32
-  todemb: 32
+
   save_folder: ""
   sampling_shrink_interval: 4

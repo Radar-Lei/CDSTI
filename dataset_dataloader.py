@@ -170,7 +170,7 @@ class Get_Dataset(Dataset):
                 pickle.dump([self.training_mean, self.training_std], f)
         else:
             path = save_folder + "/meanstd.pk"
-            with open(path, "wb") as f:
+            with open(path, "rb") as f:
                 self.training_mean, self.training_std = pickle.load(f)
 
         # normalization using mean and std of training data
