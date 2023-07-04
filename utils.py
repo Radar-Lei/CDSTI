@@ -156,7 +156,7 @@ def train(
     test_loader=None,
     mean = 0,
     std = 1,
-    valid_epoch_interval=5,
+    valid_epoch_interval=10,
     early_stopping_patience = 10,
     foldername="",
 ):
@@ -214,7 +214,7 @@ def train(
             # lr_scheduler.step()
             scheduler.step(avg_loss)
 
-        if  ((epoch_no + 1) % valid_epoch_interval == 0) or (epoch_no < 4):
+        if  ((epoch_no + 1) % valid_epoch_interval == 0):
             evaluate(
                 model,
                 test_loader,

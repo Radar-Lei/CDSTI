@@ -3,6 +3,121 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
+class TokenEmbedding(nn.Module):
+    def __init__(self, c_in, d_model):
+        super(TokenEmbedding, self).__init__()
+        padding = 1 if torch.__version__ >= '1.5.0' else 2
+        self.tokenConv = nn.Conv1d(in_channels=c_in, out_channels=d_model,
+                                   kernel_size=3, padding=padding, padding_mode='circular', bias=False)
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(
+                    m.weight, mode='fan_in', nonlinearity='leaky_relu')
+
+    def forward(self, x):
+        x = self.tokenConv(x.permute(0, 2, 1)).transpose(1, 2)
+        return x
+
+class PositionalEmbedding(nn.Module):
+    def __init__(self, d_model, max_len=5000):
+        super(PositionalEmbedding, self).__init__()
+        # Compute the positional encodings once in log space.
+        pe = torch.zeros(max_len, d_model).float()
+        pe.require_grad = False
+
+        position = torch.arange(0, max_len).float().unsqueeze(1)
+        div_term = (torch.arange(0, d_model, 2).float()
+                    * -(math.log(10000.0) / d_model)).exp()
+
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        return self.pe[:, :x.size(1)]
+    
+class FixedEmbedding(nn.Module):
+    def __init__(self, c_in, d_model):
+        super(FixedEmbedding, self).__init__()
+
+        w = torch.zeros(c_in, d_model).float()
+        w.require_grad = False
+
+        position = torch.arange(0, c_in).float().unsqueeze(1)
+        div_term = (torch.arange(0, d_model, 2).float()
+                    * -(math.log(10000.0) / d_model)).exp()
+
+        w[:, 0::2] = torch.sin(position * div_term)
+        w[:, 1::2] = torch.cos(position * div_term)
+
+        self.emb = nn.Embedding(c_in, d_model)
+        self.emb.weight = nn.Parameter(w, requires_grad=False)
+
+    def forward(self, x):
+        return self.emb(x).detach()
+    
+class TemporalEmbedding(nn.Module):
+    def __init__(self, d_model, embed_type='fixed', freq='h'):
+        super(TemporalEmbedding, self).__init__()
+
+        minute_size = 4
+        hour_size = 24
+        weekday_size = 7
+        day_size = 32
+        month_size = 13
+
+        Embed = FixedEmbedding if embed_type == 'fixed' else nn.Embedding
+        if freq == 't':
+            self.minute_embed = Embed(minute_size, d_model)
+        self.hour_embed = Embed(hour_size, d_model)
+        self.weekday_embed = Embed(weekday_size, d_model)
+        self.day_embed = Embed(day_size, d_model)
+        self.month_embed = Embed(month_size, d_model)
+
+    def forward(self, x):
+        x = x.long()
+        minute_x = self.minute_embed(x[:, :, 4]) if hasattr(
+            self, 'minute_embed') else 0.
+        hour_x = self.hour_embed(x[:, :, 3])
+        weekday_x = self.weekday_embed(x[:, :, 2])
+        day_x = self.day_embed(x[:, :, 1])
+        month_x = self.month_embed(x[:, :, 0])
+
+        return hour_x + weekday_x + day_x + month_x + minute_x
+    
+class TimeFeatureEmbedding(nn.Module):
+    def __init__(self, d_model, embed_type='timeF', freq='h'):
+        super(TimeFeatureEmbedding, self).__init__()
+
+        freq_map = {'h': 4, 't': 5, 's': 6,
+                    'm': 1, 'a': 1, 'w': 2, 'd': 3, 'b': 3}
+        d_inp = freq_map[freq]
+        self.embed = nn.Linear(d_inp, d_model, bias=False)
+
+    def forward(self, x):
+        return self.embed(x)
+
+class DataEmbedding(nn.Module):
+    def __init__(self, c_in, d_model, embed_type='fixed', freq='h', dropout=0.1):
+        super(DataEmbedding, self).__init__()
+
+        self.value_embedding = TokenEmbedding(c_in=c_in, d_model=d_model)
+        self.position_embedding = PositionalEmbedding(d_model=d_model)
+        self.temporal_embedding = TemporalEmbedding(d_model=d_model, embed_type=embed_type,
+                                                    freq=freq) if embed_type != 'timeF' else TimeFeatureEmbedding(
+            d_model=d_model, embed_type=embed_type, freq=freq)
+        self.dropout = nn.Dropout(p=dropout)
+
+    def forward(self, x, x_mark):
+        if x_mark is None:
+            x = self.value_embedding(x) + self.position_embedding(x)
+        else:
+            x = self.value_embedding(
+                x) + self.temporal_embedding(x_mark) + self.position_embedding(x)
+        return self.dropout(x)
+
 def get_torch_trans(heads=8, layers=1, channels=64):
     encoder_layer = nn.TransformerEncoderLayer(
         d_model=channels, nhead=heads, dim_feedforward=32, dropout=0.2, activation="gelu"
@@ -48,11 +163,13 @@ class Inception_Block_V1(nn.Module):
         return res
 
 class TimesBlock(nn.Module):
-    def __init__(self, seq_len, d_model, top_k = 5, d_ff = 64, num_kernels = 6):
+    def __init__(self, config):
         super(TimesBlock, self).__init__()
-        self.seq_len = seq_len
-
-        self.k = top_k
+        d_model = config["diffusion"]["channels"]
+        num_kernels = config["model"]["num_kernels"]
+        d_ff = config["model"]["d_ff"]
+        self.seq_len = config["model"]["sequence_length"]
+        self.k = config["model"]["top_k"]
         # parameter-efficient design
         self.conv = nn.Sequential(
             Inception_Block_V1(d_model, d_ff,
@@ -133,137 +250,62 @@ class DiffusionEmbedding(nn.Module):
         table = torch.cat([torch.sin(table), torch.cos(table)], dim=1)  # (T,dim*2)
         return table
 
-class ResidualBlock(nn.Module):
-    def __init__(self, seq_len, side_dim, extra_spa_dim, extra_temporal_dim, channels, diffusion_embedding_dim, nheads):
-        super().__init__()
-        self.extra_tem_dim = extra_temporal_dim
-        self.diffusion_projection = nn.Linear(diffusion_embedding_dim, channels)
-
-        self.fusion_projection = Conv1d_with_init(extra_spa_dim + extra_temporal_dim + channels, channels,1)
-
-        self.cond_projection = Conv1d_with_init(side_dim, 2 * channels, 1)
-        self.mid_projection = Conv1d_with_init(channels, 2 * channels, 1)
-        self.output_projection = Conv1d_with_init(channels, 2 * channels, 1)
-
-        self.time_layer = TimesBlock(seq_len, channels)
-        # self.feature_layer = get_torch_trans(heads=nheads, layers=2, channels=channels)
-
-    def forward_time(self, y, base_shape):
-        B, channel, K, L = base_shape
-        if L == 1:
-            return y
-        #
-        y = y.reshape(B, channel, K, L).permute(0, 2, 3, 1).reshape(B * K, L, channel)
-        y = self.time_layer(y)
-        y = y.reshape(B, K, L, channel).permute(0, 3, 1, 2).reshape(B, channel, K * L)
-        return y
-
-    def forward_feature(self, y, base_shape):
-        B, channel, K, L = base_shape
-        if K == 1:
-            return y
-        y = y.reshape(B, channel, K, L).permute(0, 3, 1, 2).reshape(B * L, channel, K)
-        y = self.feature_layer(y.permute(2, 0, 1)).permute(1, 2, 0)
-        y = y.reshape(B, L, channel, K).permute(0, 2, 3, 1).reshape(B, channel, K * L)
-        return y
-
-    def forward(self, x, cond_info, extra_tem_feature, extra_spa_feature, diffusion_emb):
-        B, channel, K, L = x.shape
-        base_shape = x.shape
-        x = x.reshape(B, channel, K * L) # (B,channel,K*L)
-
-        # project embedded diffusion steps from (B, diffusion_embedding_dim) to (B,channel) then (B,channel,1)
-        diffusion_emb = self.diffusion_projection(diffusion_emb).unsqueeze(-1)  
-        # from (B, extra_temporal_dim, K, L) to (B, extra_temporal_dim, K*L)
-        extra_tem_feature = extra_tem_feature.reshape(B, self.extra_tem_dim, K * L)
-        # from (B, K, K, L) to (B, K, K*L)
-        extra_spa_feature = extra_spa_feature.reshape(B, K, K * L)
-
-        y = x + diffusion_emb # x is of shape (B, channel, K*L)
-        
-        # shape (B, channel + extra_temporal_dim + K, K*L)
-        y = torch.cat([y, extra_tem_feature, extra_spa_feature], dim=1) 
-
-        # use a 1x1 project x from that to (B, channel, K*L)
-        y = self.fusion_projection(y) # (B,channel,K*L)
-
-        y = self.forward_time(y, base_shape)
-        # y = self.forward_feature(y, base_shape)  # (B,channel,K*L)
-        y = self.mid_projection(y)  # (B,2*channel,K*L)
-
-        _, cond_dim, _, _ = cond_info.shape
-        cond_info = cond_info.reshape(B, cond_dim, K * L)
-        cond_info = self.cond_projection(cond_info)  # (B,2*channel,K*L)
-        y = y + cond_info
-
-        gate, filter = torch.chunk(y, 2, dim=1)
-        y = torch.sigmoid(gate) * torch.tanh(filter)  # (B,channel,K*L)
-        y = self.output_projection(y)
-
-        residual, skip = torch.chunk(y, 2, dim=1)
-        x = x.reshape(base_shape)
-        residual = residual.reshape(base_shape)
-        skip = skip.reshape(base_shape)
-        return (x + residual) / math.sqrt(2.0), skip
 
 class diff_CDI(nn.Module):
-    def __init__(self, config, seq_len, inputdim=2):
+    def __init__(self, config):
         super().__init__()
-        self.channels = config["channels"]
-        self.spa_dim = config["spatial_dim"]
+        self.channels = config["diffusion"]["channels"]
+        self.layer = config["model"]["e_layers"]
+        self.spatial_dim = config["diffusion"]["spatial_dim"]
 
         # embedding for diffusion step
         self.diffusion_embedding = DiffusionEmbedding(
-            num_steps=config["num_steps"],
-            embedding_dim=config["diffusion_embedding_dim"],
+            num_steps=config["diffusion"]["num_steps"],
+            embedding_dim=self.channels,
         )
 
-        self.input_projection = Conv1d_with_init(inputdim, self.channels, 1)
-        self.output_projection1 = Conv1d_with_init(self.channels, self.channels, 1)
-        self.output_projection2 = Conv1d_with_init(self.channels, 1, 1)
-        nn.init.zeros_(self.output_projection2.weight)
+        self.stamps_embedding = DataEmbedding(
+            self.spatial_dim * 2, # since conditional obsevaation and target (B, L, 2*K)
+            self.channels,
+            config["model"]["time_embed"], 
+            config["model"]["timembed_freq"],
+            config["model"]["dropout"])
 
-        self.residual_layers = nn.ModuleList(
-            [
-                ResidualBlock(
-                    seq_len=seq_len,
-                    side_dim=config["side_dim"],
-                    extra_spa_dim = self.spa_dim,
-                    extra_temporal_dim = config["extra_temporal_dim"],
-                    channels=self.channels,
-                    diffusion_embedding_dim=config["diffusion_embedding_dim"],
-                    nheads=config["nheads"],
-                )
-                for _ in range(config["layers"])
-            ]
-        )
+        self.model = nn.ModuleList([TimesBlock(config)
+                            for _ in range(self.layer)])
+        
+        self.layer_norm = nn.LayerNorm(self.channels)
 
-    def forward(self, x, side_info, extra_tem_feature, extra_spa_feature, diffusion_step):
+        self.output_project = nn.Linear(self.channels, self.spatial_dim, bias=True)
+        
+        # self.output_projection1 = Conv1d_with_init(self.channels, self.channels, 1)
+        # self.output_projection2 = Conv1d_with_init(self.channels, 1, 1)
+        # nn.init.zeros_(self.output_projection2.weight)
+
+
+    def forward(self, x, diffusion_step, seq_stamps):
         '''
         B: batch size, K: number of features, L: sequence length.
+        seq_stamps: (B,L,timeenc)
         if conditional, x is of shape (B,2,K,L) including x_{0}^{co} and x_{t}^{ta}
         '''
         B, inputdim, K, L = x.shape
-
-        x = x.reshape(B, inputdim, K * L) # (B,2,K,L) to (B,2,K*L) since nn.Conv1d only accepts (B, C_in, L_in)
-        x = self.input_projection(x) # (B,channel,K*L)
-        x = F.relu(x)
-        x = x.reshape(B, self.channels, K, L)
+        x = x.reshape(B, inputdim * K, L) # (B,2,K,L) to (B,2*K,L)
+        x = x.permute(0, 2, 1)  # (B,L,2*K)
 
         # diffusion_step, i.e., t is a segement, whose shape torch.Size([B])
-        # diffusion_step_embbed is of shape (B, diffusion_embedding_dim)
+        # diffusion_step_embbed is of shape (B, C)
         diffusion_step_embbed = self.diffusion_embedding(diffusion_step)
+        # (B, C) to (B, C, 1) to (B, C, L) to (B, L, C)
+        diffusion_step_embbed = diffusion_step_embbed.unsqueeze(2).expand(-1, -1, L).permute(0, 2, 1)
 
-        skip = []
-        for layer in self.residual_layers:
-            x, skip_connection = layer(x, side_info, extra_tem_feature, extra_spa_feature, diffusion_step_embbed)
-            skip.append(skip_connection)
+        x_enc = self.stamps_embedding(x, seq_stamps) # (B, L, C)
+        x_enc = x_enc + diffusion_step_embbed
 
-        x = torch.sum(torch.stack(skip), dim=0) / math.sqrt(len(self.residual_layers))
-        x = x.reshape(B, self.channels, K * L)
-        x = self.output_projection1(x)  # (B,channel,K*L)
-        x = F.relu(x)
-        x = self.output_projection2(x)  # (B,1,K*L)
-        x = x.reshape(B, K, L)
-        return x
+        for i in range(self.layer):
+            x_enc = self.layer_norm(self.model[i](x_enc))
 
+        # (B, L, C) --> (B, L, K) --> (B, K, L)
+        x_out = self.output_project(x_enc).permute(0,2,1) 
+
+        return x_out

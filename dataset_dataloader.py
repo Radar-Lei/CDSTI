@@ -133,9 +133,18 @@ class Get_Dataset(Dataset):
             selected_features = np.random.choice(dim_K, round(dim_K * missing_rate), replace=False)
             data_arr_missing = data_arr.copy()
             data_arr_missing[:, selected_features] = 0 # shape (D*L_d, K)
-
         elif missing_pattern == 'NRSM':
             np.random.seed(1000)
+        elif missing_pattern == 'RM':
+            DL_d, dim_K = data_arr.shape
+            np.random.seed(1000)
+            num_zeros = int(DL_d * dim_K * 0.5)
+            zero_indices = np.random.choice(DL_d * dim_K, num_zeros, replace=False)
+            zero_indices = np.unravel_index(zero_indices, (DL_d, dim_K))
+            data_arr_missing = data_arr.copy()
+            data_arr_missing[zero_indices] = 0 # shape (D*L_d, K)
+        elif missing_pattern == 'NM':
+            print(0)
         else:
             # this missing pattern should be called mixed, but not usre if it's meaningful
             """
@@ -151,11 +160,11 @@ class Get_Dataset(Dataset):
             df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
             df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
             data_stamp = df_stamp.drop(['date'], 1).values
-            data_stamp = data_stamp[boarder1:boarder2]
+            self.data_stamp = data_stamp[boarder1:boarder2]
         elif self.timeenc == 1:
             data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=timeenc_freq)
             data_stamp = data_stamp.transpose(1, 0) # from (time_emb_dim, L) to (L, time_emb_dim)
-            data_stamp = data_stamp[boarder1:boarder2]
+            self.data_stamp = data_stamp[boarder1:boarder2]
 
         self.missing_mask = 1 - (data_arr_missing == 0) # shape (D*L_d, K), 1 indicates observed, 0 indicates missing
         # save the missing mask for method comparison
@@ -215,6 +224,7 @@ class Get_Dataset(Dataset):
         subseq = self.data_arr_norm[s_begin:s_end]
         missing_mask = self.missing_mask[s_begin:s_end]
         actual_mask = self.actual_mask[s_begin:s_end]
+        seq_stamps = self.data_stamp[s_begin:s_end]
 
         if self.spatial_inp.any():
             spatial_inp = self.spatial_inp
@@ -223,6 +233,7 @@ class Get_Dataset(Dataset):
             "actual_data": subseq,
             "missing_mask": missing_mask,
             "actual_mask": actual_mask,
+            "seq_stamps": seq_stamps,
             "timestamps": np.arange(subseq.shape[0]),
             "spatial_inp": spatial_inp
             }
@@ -256,10 +267,10 @@ def get_dataloader(
     if is_train:
         shuffle_flag = True
         drop_last = True
-        batch_size = 1
     else:
         shuffle_flag = False
         drop_last = True
+        batch_size = 15
 
     tensor_mean = torch.from_numpy(dataset.training_mean).to(device).float()
     tensor_std = torch.from_numpy(dataset.training_std).to(device).float()

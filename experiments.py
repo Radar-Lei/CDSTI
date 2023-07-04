@@ -109,7 +109,7 @@ with open(foldername + "config.json", "w") as f:
     seq_length = config['model']['sequence_length'],
     timeenc= 1,
     is_train=True,
-    timeenc_freq='h'
+    timeenc_freq=config["model"]["timembed_freq"]
     )
 
 (
@@ -126,7 +126,7 @@ with open(foldername + "config.json", "w") as f:
     seq_length = config['model']['sequence_length'],
     timeenc= 1,
     is_train=False,
-    timeenc_freq='h'
+    timeenc_freq=config["model"]["timembed_freq"]
     )
 
 model = CDSTI(config, config['model']['device'], spatial_dim).to(config['model']['device'])
