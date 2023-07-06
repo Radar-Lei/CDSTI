@@ -289,13 +289,13 @@ class Get_Dataset(Dataset):
 
     def __len__(self):
         if self.is_train:
-            return int((len(self.data_arr_norm) - self.seq_len) / 12) + 1
+            return int((len(self.data_arr_norm) - self.seq_len) / 6) + 1
         else:
             return self.test_day
 
     def __getitem__(self, index):
         if self.is_train:
-            s_begin = index * 12
+            s_begin = index * 6
             s_end = s_begin + self.seq_len
         else:
             s_begin = 5*12 + index * 288

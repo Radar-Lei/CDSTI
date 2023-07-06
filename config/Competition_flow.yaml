@@ -5,16 +5,16 @@ train:
   epochs: 500
   batch_size: 16
   lr: 3.0e-3
-  nsample: 100
+  nsample: 50
   test_sample_num: 156 # num of samples for one day is toddim / sequence_length, here 32 are two days
   
 diffusion:
-  layers: 4 # 4
-  channels: 128 # d_model for Transformer 64
-  nheads: 8 # 8
+  layers: 2 # 4
+  channels: 32 # d_model for Transformer 64
+  nheads: 4 # 8
   diffusion_embedding_dim: 32 # dim for embedding of diffusion step
   beta_start: 0.0001 #
-  beta_end: 0.09
+  beta_end: 0.2
   num_steps: 100
   schedule: "quad"
 
