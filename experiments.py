@@ -1,3 +1,5 @@
+# Pure Transformer as predictor
+
 import argparse
 import torch
 import os
