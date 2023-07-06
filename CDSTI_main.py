@@ -202,15 +202,19 @@ class CDSTI_base(nn.Module):
     def forward(self, batch):
         (
             actual_data, # x_0 (B,K,L)
-            _, # (B,K,L)
-            actual_mask, # missing_mask as the actual mask
+            actual_mask, # (B,K,L)
+            missing_mask, # 
             timestamps, # (B,L)
             dow_arr, # (B,L)
             tod_arr, # (B,L)
             spa_mat, # (B,K,K)
         ) = self.process_data(batch)
 
-        missing_mask = self.sm_mask_generator(actual_mask, self.config["model"]["missing_rate"])
+        if self.config["model"]["missing_pattern"] == "RSM":
+            actual_mask = missing_mask # missing_mask as the actual mask
+            missing_mask = self.sm_mask_generator(actual_mask, self.config["model"]["missing_rate"])
+        else:
+            missing_mask = missing_mask * actual_mask
 
         side_info = self.get_side_info(missing_mask)
 
@@ -236,26 +240,25 @@ class CDSTI_base(nn.Module):
         ) = self.process_data(batch)
 
         with torch.no_grad():
-            cond_mask = missing_mask
-            observed_mask = actual_mask
-            observed_tp = timestamps
+
             # to keep the ground truth unchanged
             observed_data = actual_data.clone()
-
-            target_mask = observed_mask - cond_mask
+            
+            missing_mask = missing_mask * actual_mask
+            target_mask = actual_mask - missing_mask
             extra_tem_feature = self.extra_temporal_feature(timestamps, missing_mask, dow_arr, tod_arr)
 
             # extra spatial feature shape: (B, K, K, L)  # (B,K,K) -> (B,K,K,1) -> (B,K,K,L)
             extra_spa_feature = spa_mat.unsqueeze(-1).expand(-1, -1, -1, tod_arr.shape[-1])
 
-            side_info = self.get_side_info(cond_mask)
+            side_info = self.get_side_info(missing_mask)
 
-            samples = self.impute(observed_data, cond_mask, side_info, extra_tem_feature, extra_spa_feature, n_samples)
+            samples = self.impute(observed_data, missing_mask, side_info, extra_tem_feature, extra_spa_feature, n_samples)
 
             # for i in range(len(cut_length)):  # to avoid double evaluation
             #     target_mask[i, ..., 0 : cut_length[i].item()] = 0
 
-        return samples, actual_data, target_mask, observed_mask, observed_tp
+        return samples, actual_data, target_mask, actual_mask, timestamps
 
 class CDSTI(CDSTI_base):
     def __init__(self, config, device, spatial_dim):

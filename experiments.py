@@ -16,8 +16,8 @@ python experiments.py --dataset Portland --baseconfig Portland.yaml --missingpat
 """
 
 parser = argparse.ArgumentParser(description='Conditional Diffusion Model for Spatiotemporal Traffic Data Imputation')
-parser.add_argument('--dataset', type=str, default='PeMS7_V_228', help='dataset name:PeMS7_V_228, PeMS7_V_1026, Hangzhou, Seattle, or Portland')
-parser.add_argument('--baseconfig', type=str, default='PeMS7_V_228.yaml', help='base config file')
+parser.add_argument('--dataset', type=str, default='Competition_flow', help='dataset name:Competition_flow,PeMS7_V_228, PeMS7_V_1026, Hangzhou, Seattle, or Portland')
+parser.add_argument('--baseconfig', type=str, default='Competition_flow.yaml', help='base config file')
 
 parser.add_argument(
     '--missingpattern', 
@@ -32,7 +32,7 @@ parser.add_argument(
     the missing rate denotes the proportion of 
     nodes or locations with empty data'''
                     )
-parser.add_argument('--device', type=str, default='cuda:0', help='device')
+parser.add_argument('--device', type=str, default='cuda:1', help='device')
 parser.add_argument('--nsample', type=int, default=50, help='number of samples')
 parser.add_argument("--modelfolder", type=str, default="")
 
@@ -81,6 +81,9 @@ elif args.dataset == "Seattle":
     config["diffusion"]["spatial_dim"] = 323
 elif args.dataset == "Portland":
     spatial_dim = 1156
+elif args.dataset == "Competition_flow":
+    spatial_dim = 40
+    config["diffusion"]["spatial_dim"] = 40
 else:
     print("No such dataset")
 
@@ -97,7 +100,6 @@ with open(foldername + "config.json", "w") as f:
 
 (
     train_loader,
-    test_loader,
     tensor_mean, 
     tensor_std
 ) = get_dataloader(
@@ -108,7 +110,22 @@ with open(foldername + "config.json", "w") as f:
     dataset_name=args.dataset, 
     save_folder=args.modelfolder,
     seq_length = config['model']['sequence_length'],
-    test_sample_num=config['train']['test_sample_num']
+    is_train=True,
+    )
+
+(
+    test_loader,
+    _, 
+    _
+) = get_dataloader(
+    config['train']['batch_size'], 
+    config['model']['device'], 
+    config['model']['missing_pattern'], 
+    config['model']['missing_rate'], 
+    dataset_name=args.dataset, 
+    save_folder=args.modelfolder,
+    seq_length = config['model']['sequence_length'],
+    is_train=False,
     )
 
 model = CDSTI(config, config['model']['device'], spatial_dim).to(config['model']['device'])

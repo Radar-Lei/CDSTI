@@ -37,7 +37,7 @@ def train(
     p2 = int(0.9 * config["epochs"])
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, factor=0.9, patience=50, verbose=True
+    optimizer, factor=0.8, patience=10, verbose=True
     )
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
@@ -79,10 +79,10 @@ def train(
                     },
                     refresh=False,
                 )
-            # lr_scheduler.step()
-            scheduler.step(avg_loss)
+                # lr_scheduler.step()
+            scheduler.step(avg_loss / batch_no)
 
-        if  ((epoch_no + 1) % valid_epoch_interval == 0) or (epoch_no < 4):
+        if  ((epoch_no + 1) % valid_epoch_interval == 0) or (epoch_no < 5):
             evaluate(
                 model,
                 test_loader,
@@ -156,16 +156,14 @@ def evaluate(model, test_loader, config, nsample=100, mean=0, std=1, epoch = 1, 
                 all_generated_samples.append(samples)
 
                 c_target[c_target == 0] = 1e-6
+                samples_median_value = (samples_median.values * std) + mean
+                c_target = (c_target * std) + mean
 
-                mse_current = (
-                    ((samples_median.values - c_target) * eval_points) ** 2
-                ) * (std ** 2)
-                mae_current = (
-                    torch.abs((samples_median.values - c_target) * eval_points)
-                ) * std
+                mse_current = ((samples_median_value - c_target) * eval_points) ** 2
+                mae_current = torch.abs((samples_median_value - c_target) * eval_points)
 
                 # for computing APE, i.e., MAPE, we do not need the std to unnormalize the data
-                ape_current = torch.abs((samples_median.values * std - c_target * std) / (c_target * std + mean )) * eval_points
+                ape_current = torch.abs((c_target - samples_median_value)/ c_target ) * eval_points
 
                 mse_total += mse_current.sum().item()
                 mae_total += mae_current.sum().item()
@@ -249,7 +247,7 @@ def evaluate(model, test_loader, config, nsample=100, mean=0, std=1, epoch = 1, 
             quantiles_imp = quantile(samples, all_target_np, all_given_np)
 
             ###traffic speed###
-            dataind = config['daily_num_samples'] # here 16, since seq_len=18, we plot the first day, 16 * 18 = 288 for PeMSD7
+            dataind = 0 # here 16, since seq_len=18, we plot the first day, 16 * 18 = 288 for PeMSD7
 
             # by default, num_subplots = K, but we can change it to plot less subplots
             num_subplots = min(K, 60)
