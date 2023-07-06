@@ -3,14 +3,15 @@
 
 train:
   epochs: 500
-  batch_size: 16
+  batch_size: 32
   lr: 3.0e-3
   nsample: 50
-  test_sample_num: 156 # num of samples for one day is toddim / sequence_length, here 32 are two days
+  test_sample_num: 48 # num of samples for one day is toddim / sequence_length, here 32 are two days
+  start_interval: 1
   
 diffusion:
   layers: 2 # 4
-  channels: 32 # d_model for Transformer 64
+  channels: 64 # d_model for Transformer 64
   nheads: 4 # 8
   diffusion_embedding_dim: 32 # dim for embedding of diffusion step
   beta_start: 0.0001 #
@@ -24,7 +25,7 @@ model:
   featureemb: 32
   missing_pattern: "fixed"
   missing_rate: 0.3
-  sequence_length: 156
+  sequence_length: 48
   toddim: 288
   dowemb: 32
   todemb: 32

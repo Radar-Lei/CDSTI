@@ -1,4 +1,4 @@
-# Pure Transformer as predictor
+# Pure Transformer as noise, predictor
 
 import argparse
 import torch
