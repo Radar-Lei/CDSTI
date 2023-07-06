@@ -1,3 +1,5 @@
+# pure 2Dconv as the predictor
+
 import argparse
 import torch
 import os
