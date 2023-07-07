@@ -1,4 +1,4 @@
-# Pure Transformer as noise, predictor
+# Pure Transformer as noise predictor, task is short-term prediction
 
 import argparse
 import torch
