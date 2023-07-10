@@ -98,48 +98,6 @@ class Get_Dataset(Dataset):
 
             data_mat = np.reshape(data_arr, (len(dow_arr), L_d, -1)).transpose(2, 1, 0) # (K, L_d, D)
             
-        elif dataset_name == "Hangzhou":
-            path = "./dataset/" + dataset_name + "/tensor.mat"
-            data_mat = loadmat(path)['tensor'].transpose(0,2,1)  # of shape (K, L_d, D) ndarray
-            dow_arr = self._generate_dow_array('2019/01/01', '2019/01/25')[0]
-
-        elif dataset_name == "Seattle":
-            data_arr_df = pd.read_pickle('./dataset/Seattle/speed_matrix_2015') # (D*L_d, K)
-            # data_arr.to_csv('./dataset/Seattle/speed_matrix_2015.csv', index=True)
-            location_info = pd.read_csv('./dataset/Seattle/Cabinet Location Information.csv')
-            dow_arr, date_range = self._generate_dow_array('2015/01/01', '2015/12/31')
-            D = len(date_range)
-            L_d = 288
-
-            # the sensor id's in data_arr_df actually has duplicated sensor ids
-            distance_df = pd.DataFrame({'SensorName': [col[1:] for col in data_arr_df.columns]})
-            dist_merged_df = pd.merge(distance_df, location_info[['CabName', 'Lat', 'Lon']], left_on='SensorName', right_on='CabName', how='left')
-
-            # drop the redundant 'CabName' column
-            dist_merged_df = dist_merged_df.drop('CabName', axis=1)
-
-            # Compute the adjacency matrix
-            adj_matrix = np.zeros((len(dist_merged_df), len(dist_merged_df)))
-            for i in range(len(dist_merged_df)):
-                for j in range(i+1, len(dist_merged_df)):
-                    lat1, lon1 = dist_merged_df.iloc[i]['Lat'], dist_merged_df.iloc[i]['Lon']
-                    lat2, lon2 = dist_merged_df.iloc[j]['Lat'], dist_merged_df.iloc[j]['Lon']
-                    dist = self._haversine(lat1, lon1, lat2, lon2)
-                    adj_matrix[i,j] = dist
-                    adj_matrix[j,i] = dist
-
-            weight_A_norm = (adj_matrix - adj_matrix.mean()) / adj_matrix.std()
-            self.spatial_inp = weight_A_norm
-            
-            data_mat = np.reshape(data_arr_df.values, (D, L_d, -1)).transpose(2, 1, 0) # (K, L_d, D)
-
-        elif dataset_name == "Portland":
-            path = "./dataset/" + dataset_name + "/volume.npy"
-            data_arr = np.load(path)
-            dim1, dim2 = data_arr.shape
-            dim = np.array([dim1, 96, 31])
-            data_mat = mat2ten(data_arr, dim, 0) # of shape (K, L_d, D) ndarray
-            dow_arr = self._generate_dow_array('2021/01/01', '2021/01/31')[0]
         else:
             print(0)
 
