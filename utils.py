@@ -25,12 +25,12 @@ def train(
     mean = 0,
     std = 1,
     valid_epoch_interval=5,
-    early_stopping_patience = 10,
+    early_stopping_patience = 20,
     foldername="",
 ):
     optimizer = Adam(model.parameters(), lr=config["lr"], weight_decay=1e-6)
     if foldername != "":
-        output_path = foldername + "/model.pth"
+        output_path = foldername + "/model"
 
     # decay from 0.001 to 0.0001 and 0.00001 at 75% and 90% of total epochs
     p1 = int(0.75 * config["epochs"])
@@ -44,7 +44,8 @@ def train(
         optimizer, milestones=[p1, p2], gamma=0.1
     )
 
-    best_valid_loss = 1e10
+    best_valid_loss = np.Inf
+    counter = 0
     for epoch_no in range(config["epochs"]):
         avg_loss = 0
         model.train()
@@ -82,20 +83,29 @@ def train(
                 # lr_scheduler.step()
             scheduler.step(avg_loss / batch_no)
 
-        if  ((epoch_no + 1) % valid_epoch_interval == 0) or (epoch_no < 5):
-            evaluate(
-                model,
-                test_loader,
-                config,
-                nsample=config['nsample'],
-                mean=mean,
-                std=std,
-                epoch = epoch_no,
-                foldername=foldername,
-            )
-        
-        if foldername != "":
-            torch.save(model.state_dict(), output_path)
+
+        best_rmse, best_epoch = evaluate(
+            model,
+            test_loader,
+            config,
+            nsample=config['nsample'],
+            mean=mean,
+            std=std,
+            epoch = epoch_no,
+            foldername=foldername,
+            counter=counter,
+            best_valid_loss=best_valid_loss,
+        )
+
+        if (foldername != "") and best_rmse != None:
+            torch.save(model.state_dict(), output_path+"_rmse({:.2f})_epoch({}).pth".format(best_rmse, epoch_no))
+            best_valid_loss = best_rmse
+            counter = 0
+
+        if best_epoch is not None:
+            counter = best_epoch
+            if counter > early_stopping_patience:
+                break
 
 def quantile_loss(target, forecast, q: float, eval_points) -> float:
     return 2 * torch.sum(
@@ -123,7 +133,7 @@ def calc_quantile_CRPS(target, forecast, eval_points, mean, std):
     return CRPS.item() / len(quantiles)
 
 
-def evaluate(model, test_loader, config, nsample=100, mean=0, std=1, epoch = 1, foldername=""):
+def evaluate(model, test_loader, config, nsample=100, mean=0, std=1, epoch = 1, foldername="", counter=0, best_valid_loss=np.Inf):
 
     with torch.no_grad():
         model.eval()
@@ -223,6 +233,11 @@ def evaluate(model, test_loader, config, nsample=100, mean=0, std=1, epoch = 1, 
                 print("MAPE:", (mape_total / evalpoints_total) * 100)
                 print("CRPS:", CRPS)
 
+        curr_valid_rmse = np.sqrt(mse_total / evalpoints_total)
+        if curr_valid_rmse < best_valid_loss:
+            best_rmse = np.sqrt(mse_total / evalpoints_total)
+            best_epoch = epoch
+
             unnormalization = True
 
             # foldername = "Guangzhou_20230525_152915_missing_pattern(RSM)_misssing_rate(0.1)"
@@ -272,3 +287,7 @@ def evaluate(model, test_loader, config, nsample=100, mean=0, std=1, epoch = 1, 
                 figs_path, 
                 epoch
                 )
+            return best_rmse, best_epoch
+        else:
+            counter += 1
+            return None, counter

@@ -1,0 +1,32 @@
+# When num_steps is small, beta_end should be large, e.g., num_steps=100, beta_end=0.2
+# vice versa, e.g., num_steps=1000, beta_end=0.002
+
+train:
+  epochs: 500
+  batch_size: 16
+  lr: 3.0e-3
+  nsample: 50
+  test_sample_num: 156 # num of samples for one day is toddim / sequence_length, here 32 are two days
+  
+diffusion:
+  layers: 2 # 4
+  channels: 128 # d_model for Transformer 64
+  nheads: 8 # 8
+  diffusion_embedding_dim: 32 # dim for embedding of diffusion step
+  beta_start: 0.0001 #
+  beta_end: 0.2
+  num_steps: 100
+  schedule: "quad"
+
+model:
+  device: "cuda:0"
+  timeemb: 32
+  featureemb: 32
+  missing_pattern: "fixed"
+  missing_rate: 0.3
+  sequence_length: 156
+  toddim: 288
+  dowemb: 32
+  todemb: 32
+  save_folder: ""
+  sampling_shrink_interval: 4
