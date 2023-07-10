@@ -127,7 +127,9 @@ class ResidualBlock(nn.Module):
         B, channel, K, L = base_shape
         if L == 1:
             return y
+        # (B,channel,K,L) --> (B,K,channel,L) --> (B*K,channel,L)
         y = y.reshape(B, channel, K, L).permute(0, 2, 1, 3).reshape(B * K, channel, L)
+        # (B*K,channel,L) --> (L,B*K,channel) --> (B*K,L,channel)
         y = self.time_layer(y.permute(2, 0, 1)).permute(1, 2, 0)
         y = y.reshape(B, K, channel, L).permute(0, 2, 1, 3).reshape(B, channel, K * L)
         return y
@@ -136,7 +138,10 @@ class ResidualBlock(nn.Module):
         B, channel, K, L = base_shape
         if K == 1:
             return y
+        # (B,channel,K,L) --> (B,L,channel,K) --> (B*L,channel,K)
         y = y.reshape(B, channel, K, L).permute(0, 3, 1, 2).reshape(B * L, channel, K)
+        # since nn.Transfomer expects (sequence length, batch size, embedding size)
+        # (B*L,channel,K) --> (K,B*L,channel) --> (B*L,K,channel)
         y = self.feature_layer(y.permute(2, 0, 1)).permute(1, 2, 0)
         y = y.reshape(B, L, channel, K).permute(0, 2, 3, 1).reshape(B, channel, K * L)
         return y
