@@ -26,19 +26,25 @@ class Get_Dataset(Dataset):
         self.missing_pattern = missing_pattern
 
         if dataset_name == "Competition_flow":
-            path = "./dataset/competition/train-5min/" + "flow-5min.csv"
+            flow_path = "./dataset/competition/train-5min/" + "flow-5min.csv"
             def my_date_parser(date_str):
                 return pd.to_datetime(date_str, format='%Y-%m-%d %H:%M:%S')
             
-            data_arr = pd.read_csv(path, index_col='date', parse_dates=True, date_parser=my_date_parser).values
+            data_flow_arr = pd.read_csv(flow_path, index_col='date', parse_dates=True, date_parser=my_date_parser)
+
+            speed_path = "./dataset/competition/train-5min/" + "speed-5min.csv"
+            data_speed_arr = pd.read_csv(speed_path, index_col='date', parse_dates=True, date_parser=my_date_parser)
+
+
             dow_arr, date_range = self._generate_dow_array('2023/04/02', '2023/06/30')
             D = len(date_range)
             L_d = 288
             num_locations = 10
-            sensors_per_location = 4
+            sensors_per_location = 2
             dist_list = [1260, 310, 900, 1010, 290, 2220, 240, 1220, 370]
 
             # Initialize a 20x20 adjacency matrix filled with zeros
+            total_sensors = num_locations * sensors_per_location
             adj_matrix = np.zeros((40, 40))
 
             # Iterate through the rows of the matrix
@@ -232,13 +238,13 @@ class Get_Dataset(Dataset):
 
     def __len__(self):
         if self.is_train:
-            return int((len(self.data_arr_norm) - self.seq_len) / 6) + 1
+            return int((len(self.data_arr_norm) - self.seq_len) / 3) + 1
         else:
             return self.test_day
 
     def __getitem__(self, index):
         if self.is_train:
-            s_begin = index * 6
+            s_begin = index * 3
             s_end = s_begin + self.seq_len
         else:
             s_begin = 5*12 + index * 288

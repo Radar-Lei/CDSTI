@@ -37,7 +37,7 @@ def train(
     p2 = int(0.9 * config["epochs"])
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, factor=0.8, patience=10, verbose=True
+    optimizer, factor=0.8, patience=5, verbose=True
     )
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
@@ -84,7 +84,7 @@ def train(
             scheduler.step(avg_loss / batch_no)
 
 
-        best_rmse, best_epoch = evaluate(
+        best_rmse, best_epoch, counter = evaluate(
             model,
             test_loader,
             config,
@@ -97,15 +97,12 @@ def train(
             best_valid_loss=best_valid_loss,
         )
 
-        if (foldername != "") and best_rmse != None:
-            torch.save(model.state_dict(), output_path+"_rmse({:.2f})_epoch({}).pth".format(best_rmse, epoch_no))
+        if (foldername != "") and best_rmse < best_valid_loss:
+            torch.save(model.state_dict(), output_path+"_rmse({:.2f})_epoch({}).pth".format(best_rmse, best_epoch))
             best_valid_loss = best_rmse
-            counter = 0
 
-        if best_epoch is not None:
-            counter = best_epoch
-            if counter > early_stopping_patience:
-                break
+        if counter > early_stopping_patience:
+            break
 
 def quantile_loss(target, forecast, q: float, eval_points) -> float:
     return 2 * torch.sum(
@@ -287,7 +284,8 @@ def evaluate(model, test_loader, config, nsample=100, mean=0, std=1, epoch = 1, 
                 figs_path, 
                 epoch
                 )
-            return best_rmse, best_epoch
+            counter = 0
+            return best_rmse, best_epoch, counter
         else:
             counter += 1
-            return None, counter
+            return best_valid_loss, best_epoch, counter

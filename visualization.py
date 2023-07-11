@@ -119,7 +119,7 @@ def plot_subplots(
         axes[row][col].plot(range(0,L), quantiles_imp[2][dataind,:,k], color = 'g',linestyle='solid',label='CDI')
         axes[row][col].fill_between(range(0,L), quantiles_imp[0][dataind,:,k],quantiles_imp[4][dataind,:,k],
                         color='g', alpha=0.3)
-        axes[row][col].plot(df.x,df.val, color = 'b',marker = 'o', linestyle='None', markersize=1)
+        axes[row][col].plot(df.x,df.val, color = 'b',marker = 'o', linestyle='None', markersize=2)
         axes[row][col].plot(df2.x,df2.val, color = 'r',marker = 'x', linestyle='None')
 
         # Get the minimum y-value from the data
