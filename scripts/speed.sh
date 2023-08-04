@@ -1,0 +1,15 @@
+python -u main.py \
+    --is_training 0 \
+    --root_path ./dataset/competition/train-5min/ \
+    --data_path speed.csv \
+    --d_model 512 \
+    --d_ff 256 \
+    --gpu 0 \
+    --num_kernels 6 \
+    --top_k 9 \
+    --lradj type3 \
+    --patience 20 \
+    --freq t \
+    --learning_rate 0.0001\
+    --batch_size 16\
+    --e_layers 2

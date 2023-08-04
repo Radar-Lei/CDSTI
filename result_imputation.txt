@@ -1,0 +1,15 @@
+20230724_182914_TimesNet_imputation_flow_dm512_df512_el2_topk5_nk6_fq_t_Exp_2  
+rmse:372.86, mae:248.02, mape:63.67%
+
+20230724_182914_TimesNet_imputation_flow_dm512_df512_el2_topk5_nk6_fq_t_Exp_2  
+rmse:193.21, mae:147.35, mape:14.73%
+
+20230724_202954_TimesNet_imputation_speed_dm512_df512_el2_topk5_nk6_fq_t_Exp_1  
+rmse:9.49, mae:6.39, mape:7.91%
+
+20230724_202954_TimesNet_imputation_speed_dm512_df512_el2_topk5_nk6_fq_t_Exp  
+rmse:9.38, mae:6.33, mape:7.83%
+
+20230724_182914_TimesNet_imputation_flow_dm512_df512_el2_topk5_nk6_fq_t_Exp  
+rmse:194.65, mae:147.50, mape:14.94%
+

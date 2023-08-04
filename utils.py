@@ -1,276 +1,344 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
-from torch.optim import Adam
-from tqdm import tqdm
-import pickle
-from visualization import plot_subplots, quantile, preprocess_data
-import os
+import pandas as pd
+from typing import List
+from pandas.tseries import offsets
+from pandas.tseries.frequencies import to_offset
 
-def ten2mat(tensor, mode):
-    return np.reshape(np.moveaxis(tensor, mode, 0), (tensor.shape[mode], -1), order = 'F')
-
-def mat2ten(mat, tensor_size, mode):
-    index = list()
-    index.append(mode)
-    for i in range(tensor_size.shape[0]):
-        if i != mode:
-            index.append(i)
-    return np.moveaxis(np.reshape(mat, tensor_size[index].tolist(), order = 'F'), 0, mode)
-
-def train(
-    model,
-    config,
-    train_loader,
-    test_loader=None,
-    mean = 0,
-    std = 1,
-    valid_epoch_interval=5,
-    early_stopping_patience = 10,
-    foldername="",
-):
-    optimizer = Adam(model.parameters(), lr=config["lr"], weight_decay=1e-6)
-    if foldername != "":
-        output_path = foldername + "/model.pth"
-
-    # decay from 0.001 to 0.0001 and 0.00001 at 75% and 90% of total epochs
-    p1 = int(0.75 * config["epochs"])
-    p2 = int(0.9 * config["epochs"])
-
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, factor=0.9, patience=50, verbose=True
-    )
-
-    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        optimizer, milestones=[p1, p2], gamma=0.1
-    )
-
-    best_valid_loss = 1e10
-    for epoch_no in range(config["epochs"]):
-        avg_loss = 0
-        model.train()
-        """
-        miniterval means that the progress bar will be updated 
-        if at least 5 seconds have passed since the last update.
-
-        If more than 50 seconds have passed since the last update, 
-        the progress bar will be forced to update immediately. 
-        This prevents the progress bar from appearing 
-        unresponsive if the iteration takes a long time.
-
-        By setting refresh=False, the progress bar will not be immediately refreshed,
-        meaning the updated postfix information will not be immediately displayed.
-        Instead, the progress bar will only be refreshed when the internal update interval is reached.
-        This can help reduce the frequency of refreshing the progress bar, 
-        which may be useful in cases where refreshing too frequently could slow down the overall execution of the loop.
-        """
-        with tqdm(train_loader, mininterval=2.0, maxinterval=50.0) as it:
-            for batch_no, train_batch in enumerate(it, start=1):
-                optimizer.zero_grad()
-
-                loss = model(train_batch)
-                loss.backward()
-                avg_loss += loss.item()
-                optimizer.step()
-                # set_postfix() is used to udpate the text information after the progress bar
-                it.set_postfix(
-                    ordered_dict={
-                        "avg_epoch_training_loss": avg_loss / batch_no,
-                        "epoch": epoch_no,
-                    },
-                    refresh=False,
-                )
-            # lr_scheduler.step()
-            scheduler.step(avg_loss)
-
-        if  ((epoch_no + 1) % valid_epoch_interval == 0) or (epoch_no < 4):
-            evaluate(
-                model,
-                test_loader,
-                config,
-                nsample=config['nsample'],
-                mean=mean,
-                std=std,
-                epoch = epoch_no,
-                foldername=foldername,
-            )
-        
-        if foldername != "":
-            torch.save(model.state_dict(), output_path)
-
-def quantile_loss(target, forecast, q: float, eval_points) -> float:
-    return 2 * torch.sum(
-        torch.abs((forecast - target) * eval_points * ((target <= forecast) * 1.0 - q))
-    )
-
-def calc_denominator(target, eval_points):
-    return torch.sum(torch.abs(target * eval_points))
+def MAE(pred, true):
+    return np.mean(np.abs(pred - true))
 
 
-def calc_quantile_CRPS(target, forecast, eval_points, mean, std):
-    target = target * std + mean
-    forecast = forecast * std + mean
-
-    quantiles = np.arange(0.05, 1.0, 0.05)
-    denom = calc_denominator(target, eval_points)
-    CRPS = 0
-    for i in range(len(quantiles)):
-        q_pred = []
-        for j in range(len(forecast)):
-            q_pred.append(torch.quantile(forecast[j : j + 1], quantiles[i], dim=1))
-        q_pred = torch.cat(q_pred, 0)
-        q_loss = quantile_loss(target, q_pred, quantiles[i], eval_points)
-        CRPS += q_loss / denom
-    return CRPS.item() / len(quantiles)
+def MSE(pred, true):
+    return np.mean((pred - true) ** 2)
 
 
-def evaluate(model, test_loader, config, nsample=100, mean=0, std=1, epoch = 1, foldername=""):
+def RMSE(pred, true):
+    return np.sqrt(MSE(pred, true))
 
-    with torch.no_grad():
-        model.eval()
-        mse_total = 0
-        mae_total = 0
-        mape_total = 0
-        evalpoints_total = 0
 
-        all_target = []
-        all_observed_point = []
-        all_observed_time = []
-        all_evalpoint = []
-        all_generated_samples = []
-        with tqdm(test_loader, mininterval=1.0, maxinterval=50.0) as it:
-            for batch_no, test_batch in enumerate(it, start=1):
+def MAPE(pred, true):
+    return np.mean(np.abs((pred - true) / true))
 
-                output = model.evaluate(test_batch, nsample)
 
-                samples, c_target, eval_points, observed_points, observed_time = output
-                samples = samples.permute(0, 1, 3, 2)  # (B,nsample,L,K)
-                c_target = c_target.permute(0, 2, 1)  # (B,L,K)
-                eval_points = eval_points.permute(0, 2, 1)
-                observed_points = observed_points.permute(0, 2, 1)
+def MSPE(pred, true):
+    return np.mean(np.square((pred - true) / true))
 
-                samples_median = samples.median(dim=1)
-                all_target.append(c_target)
-                all_evalpoint.append(eval_points)
-                all_observed_point.append(observed_points)
-                all_observed_time.append(observed_time)
-                all_generated_samples.append(samples)
 
-                c_target[c_target == 0] = 1e-6
+def metric(pred, true):
+    mae = MAE(pred, true)
+    mse = MSE(pred, true)
+    rmse = RMSE(pred, true)
+    mape = MAPE(pred, true)
+    mspe = MSPE(pred, true)
 
-                mse_current = (
-                    ((samples_median.values - c_target) * eval_points) ** 2
-                ) * (std ** 2)
-                mae_current = (
-                    torch.abs((samples_median.values - c_target) * eval_points)
-                ) * std
+    return mae, mse, rmse, mape, mspe
 
-                # for computing APE, i.e., MAPE, we do not need the std to unnormalize the data
-                ape_current = torch.abs((samples_median.values * std - c_target * std) / (c_target * std + mean )) * eval_points
+def adjust_learning_rate(optimizer, epoch, args):
+    # lr = args.learning_rate * (0.2 ** (epoch // 2))
+    if args.lradj == 'type1':
+        lr_adjust = {epoch: args.learning_rate * (0.7 ** ((epoch - 1) // 1))}
+    elif args.lradj == 'type2':
+        lr_adjust = {
+            2: 5e-5, 4: 1e-5, 6: 5e-6, 8: 1e-6,
+            10: 5e-7, 15: 1e-7, 20: 5e-8
+        }
+    elif args.lradj == 'type3':
+        lr_adjust = {epoch: args.learning_rate * (0.9 ** (epoch  // args.lradj_factor))}
+    
+    if epoch in lr_adjust.keys():
+        lr = lr_adjust[epoch]
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+        print('Updating learning rate to {}'.format(lr))
 
-                mse_total += mse_current.sum().item()
-                mae_total += mae_current.sum().item()
-                mape_total += ape_current.sum().item()
-                evalpoints_total += eval_points.sum().item()
+def visual(true, preds=None, name='./pic/test.pdf'):
+    """
+    Results visualization
+    """
+    plt.figure()
+    plt.plot(true, label='GroundTruth', linewidth=2, alpha=0.7)
+    plt.scatter(range(len(true)), true, label='Prediction', s=4)
+    if preds is not None:
+        plt.plot(preds, label='Prediction', linewidth=2, alpha=0.7)
+        plt.scatter(range(len(preds)), preds, label='Prediction', s=4)
+    plt.legend()
+    plt.savefig(name, bbox_inches='tight')
+    plt.close()
 
-                it.set_postfix(
-                    ordered_dict={
-                        "rmse_total": np.sqrt(mse_total / evalpoints_total),
-                        "mae_total": mae_total / evalpoints_total,
-                        "mape_total": (mape_total / evalpoints_total) * 100,
-                        "batch_no": batch_no,
-                    },
-                    refresh=True,
-                )
+class EarlyStopping:
+    def __init__(self, patience=7, verbose=False, delta=0):
+        self.patience = patience
+        self.verbose = verbose
+        self.counter = 0
+        self.best_score = None
+        self.early_stop = False
+        self.val_loss_min = np.Inf
+        self.delta = delta
 
-            with open(
-                foldername + "/generated_outputs_nsample" + str(nsample) + "_epoch" + str(epoch) + ".pk", "wb"
-            ) as f:
-                all_target = torch.cat(all_target, dim=0)
-                all_evalpoint = torch.cat(all_evalpoint, dim=0)
-                all_observed_point = torch.cat(all_observed_point, dim=0)
-                all_observed_time = torch.cat(all_observed_time, dim=0)
-                all_generated_samples = torch.cat(all_generated_samples, dim=0)
+    def __call__(self, val_loss, model, path):
+        score = -val_loss
+        if self.best_score is None:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model, path)
+        elif score < self.best_score + self.delta:
+            self.counter += 1
+            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model, path)
+            self.counter = 0
 
-                pickle.dump(
-                    [
-                        all_generated_samples,
-                        all_target,
-                        all_evalpoint,
-                        all_observed_point,
-                        all_observed_time,
-                        std,
-                        mean,
-                    ],
-                    f,
-                )
+    def save_checkpoint(self, val_loss, model, path):
+        if self.verbose:
+            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+            self.val_loss_min = val_loss
+        torch.save(model.state_dict(), path + '/' + 'checkpoint.pth')
 
-            CRPS = calc_quantile_CRPS(
-                all_target, all_generated_samples, all_evalpoint, mean, std
-            )
 
-            with open(
-                foldername + "/result_nsample" + str(nsample) + ".pk", "wb"
-            ) as f:
-                pickle.dump(
-                    [
-                        np.sqrt(mse_total / evalpoints_total),
-                        mae_total / evalpoints_total,
-                        (mape_total / evalpoints_total) * 100,
-                        CRPS,
-                    ],
-                    f,
-                )
-                print("RMSE:", np.sqrt(mse_total / evalpoints_total))
-                print("MAE:", mae_total / evalpoints_total)
-                print("MAPE:", (mape_total / evalpoints_total) * 100)
-                print("CRPS:", CRPS)
+class TimeFeature:
+    def __init__(self):
+        pass
 
-            unnormalization = True
+    def __call__(self, index: pd.DatetimeIndex) -> np.ndarray:
+        pass
 
-            # foldername = "Guangzhou_20230525_152915_missing_pattern(RSM)_misssing_rate(0.1)"
-            # path = './save/' + foldername + '/generated_outputs_nsample' + str(nsample) + '.pk' 
+    def __repr__(self):
+        return self.__class__.__name__ + "()"
+    
+class SecondOfMinute(TimeFeature):
+    """Minute of hour encoded as value between [-0.5, 0.5]"""
 
-            (
-                samples, 
-                K, 
-                L, 
-                all_target_np, 
-                all_given_np, 
-                all_evalpoint_np
-                ) =  preprocess_data(
-                all_generated_samples, 
-                mean, 
-                std, 
-                all_target, 
-                all_evalpoint, 
-                all_observed_point, 
-                unnormalization)
+    def __call__(self, index: pd.DatetimeIndex) -> np.ndarray:
+        return index.second / 59.0 - 0.5
 
-            quantiles_imp = quantile(samples, all_target_np, all_given_np)
 
-            ###traffic speed###
-            dataind = config['daily_num_samples'] # here 16, since seq_len=18, we plot the first day, 16 * 18 = 288 for PeMSD7
+class MinuteOfHour(TimeFeature):
+    """Minute of hour encoded as value between [-0.5, 0.5]"""
 
-            # by default, num_subplots = K, but we can change it to plot less subplots
-            num_subplots = min(K, 60)
+    def __call__(self, index: pd.DatetimeIndex) -> np.ndarray:
+        return index.minute / 59.0 - 0.5
 
-            ncols = 3
-            nrows = (num_subplots + ncols - 1) // ncols
 
-            figs_path = foldername + "/figs/"
+class HourOfDay(TimeFeature):
+    """Hour of day encoded as value between [-0.5, 0.5]"""
+
+    def __call__(self, index: pd.DatetimeIndex) -> np.ndarray:
+        return index.hour / 23.0 - 0.5
+
+
+class DayOfWeek(TimeFeature):
+    """Hour of day encoded as value between [-0.5, 0.5]"""
+
+    def __call__(self, index: pd.DatetimeIndex) -> np.ndarray:
+        return index.dayofweek / 6.0 - 0.5
+
+
+class DayOfMonth(TimeFeature):
+    """Day of month encoded as value between [-0.5, 0.5]"""
+
+    def __call__(self, index: pd.DatetimeIndex) -> np.ndarray:
+        return (index.day - 1) / 30.0 - 0.5
+
+
+class DayOfYear(TimeFeature):
+    """Day of year encoded as value between [-0.5, 0.5]"""
+
+    def __call__(self, index: pd.DatetimeIndex) -> np.ndarray:
+        return (index.dayofyear - 1) / 365.0 - 0.5
+
+
+class MonthOfYear(TimeFeature):
+    """Month of year encoded as value between [-0.5, 0.5]"""
+
+    def __call__(self, index: pd.DatetimeIndex) -> np.ndarray:
+        return (index.month - 1) / 11.0 - 0.5
+
+
+class WeekOfYear(TimeFeature):
+    """Week of year encoded as value between [-0.5, 0.5]"""
+
+    def __call__(self, index: pd.DatetimeIndex) -> np.ndarray:
+        return (index.isocalendar().week - 1) / 52.0 - 0.5
+
+def time_features_from_frequency_str(freq_str: str) -> List[TimeFeature]:
+    """
+    Returns a list of time features that will be appropriate for the given frequency string.
+    Parameters
+    ----------
+    freq_str
+        Frequency string of the form [multiple][granularity] such as "12H", "5min", "1D" etc.
+    """
+
+    features_by_offsets = {
+        offsets.YearEnd: [],
+        offsets.QuarterEnd: [MonthOfYear],
+        offsets.MonthEnd: [MonthOfYear],
+        offsets.Week: [DayOfMonth, WeekOfYear],
+        offsets.Day: [DayOfWeek, DayOfMonth, DayOfYear],
+        offsets.BusinessDay: [DayOfWeek, DayOfMonth, DayOfYear],
+        offsets.Hour: [HourOfDay, DayOfWeek, DayOfMonth, DayOfYear],
+        offsets.Minute: [
+            MinuteOfHour,
+            HourOfDay,
+            DayOfWeek,
+            DayOfMonth,
+        ],
+        offsets.Second: [
+            SecondOfMinute,
+            MinuteOfHour,
+            HourOfDay,
+            DayOfWeek,
+            DayOfMonth,
+            DayOfYear,
+        ],
+    }
+
+    offset = to_offset(freq_str)
+
+    for offset_type, feature_classes in features_by_offsets.items():
+        if isinstance(offset, offset_type):
+            return [cls() for cls in feature_classes]
+
+    supported_freq_msg = f"""
+    Unsupported frequency {freq_str}
+    The following frequencies are supported:
+        Y   - yearly
+            alias: A
+        M   - monthly
+        W   - weekly
+        D   - daily
+        B   - business days
+        H   - hourly
+        T   - minutely
+            alias: min
+        S   - secondly
+    """
+    raise RuntimeError(supported_freq_msg)
+
+def time_features(dates, freq='h'):
+    fea_ls = []
+    for feat in time_features_from_frequency_str(freq):
+        fea_ls.append(feat(dates))
+    return np.vstack(fea_ls)
+
+
+def plot_subplots(
+        nrows, 
+        ncols, 
+        available_cols, 
+        L, 
+        dataind, 
+        quantiles_imp, 
+        all_target_np, 
+        all_evalpoint_np, 
+        all_given_np, 
+        path, 
+        epoch
+        ):
+    """
+    plot daily subplots by concatenating subseqs into daily seqsk
+    """
+    plt.rcParams["font.size"] = 20
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols,figsize=(24.0, 3.5*nrows))
+    # fig.delaxes(axes[-1][-1])
+
+    for i in range(len(available_cols)):
+        k = available_cols[i] # k is the col/feature index
+        row = i // ncols
+        col = i % ncols
+        # all_target_np is of shape (B, L, K)
+        df = pd.DataFrame({"x":np.arange(0,L), "val":all_target_np[dataind,:,k], "y":all_evalpoint_np[dataind,:,k]})
+        df = df[df.y != 0]
+        df2 = pd.DataFrame({"x":np.arange(0,L), "val":all_target_np[dataind,:,k], "y":all_given_np[dataind,:,k]})
+        df2 = df2[df2.y != 0]
+
+        axes[row][col].plot(range(0,L), quantiles_imp[2][dataind,:,k], color = 'g',linestyle='solid',label='Diff')
+        axes[row][col].fill_between(range(0,L), quantiles_imp[0][dataind,:,k],quantiles_imp[4][dataind,:,k],
+                        color='g', alpha=0.3)
+        axes[row][col].plot(df.x, df.val, color = 'b',marker = 'o', linestyle='None', markersize=2)
+        axes[row][col].plot(df2.x,df2.val, color = 'r',marker = 'x', linestyle='None')
+
+        # Get the minimum y-value from the data
+        min_y = min(np.min(df.val), np.min(quantiles_imp[0][dataind,:,k]))
+        max_y = max(np.max(df.val), np.max(quantiles_imp[4][dataind,:,k]))
+        if min_y > 0:
+            bottom = min_y - min_y*0.1
+        else:
+            bottom = min_y + min_y*0.1
             
-            os.makedirs(figs_path, exist_ok=True)
+        axes[row][col].set_ylim(bottom= bottom)  # Set the y-axis lower limit
+        axes[row][col].set_ylim(top= max_y + max_y*0.1)  # Set the y-axis upper limit
 
-            plot_subplots(
-                nrows, 
-                ncols, 
-                num_subplots, 
-                L, 
-                dataind, 
-                quantiles_imp, 
-                all_target_np, 
-                all_evalpoint_np, 
-                all_given_np, 
-                figs_path, 
-                epoch
-                )
+        # axes[row][col].lengend()
+
+        if col == 0:
+            plt.setp(axes[row, 0], ylabel='Traffic Flow)')
+        if row == nrows-1:
+            plt.setp(axes[-1, col], xlabel='Time')
+
+    plt.subplots_adjust(top=0.95, bottom=0.05, left=0.05, right=0.95, hspace=0.3, wspace=0.2)
+    plt.savefig(f"{path}epoch({epoch}).png",dpi=200)
+    plt.close()
+
+
+def daily_plot_subplots(
+        nrows, 
+        ncols, 
+        available_cols, 
+        L, 
+        dataind, 
+        quantiles_imp, 
+        all_target_np, 
+        all_evalpoint_np, 
+        all_given_np, 
+        path, 
+        epoch
+        ):
+    """
+    plot daily subplots by concatenating subseqs into daily seqsk
+    """
+    plt.rcParams["font.size"] = 20
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols,figsize=(24.0, 3.5*nrows))
+    # fig.delaxes(axes[-1][-1])
+
+    for i in range(len(available_cols)):
+        k = available_cols[i] # k is the col/feature index
+        row = i // ncols
+        col = i % ncols
+        # all_target_np is of shape (B, L, K)
+        df = pd.DataFrame({"x":np.arange(0,L*dataind), "val":all_target_np[:dataind,:,k].reshape(-1), "y":all_evalpoint_np[:dataind,:,k].reshape(-1)})
+        df = df[df.y != 0]
+        df2 = pd.DataFrame({"x":np.arange(0,L*dataind), "val":all_target_np[:dataind,:,k].reshape(-1), "y":all_given_np[:dataind,:,k].reshape(-1)})
+        df2 = df2[df2.y != 0]
+
+        axes[row][col].plot(range(0,L*dataind), quantiles_imp[2][:dataind,:,k].reshape(-1), color = 'g',linestyle='solid',label='Diff')
+        axes[row][col].fill_between(range(0,L*dataind), quantiles_imp[0][:dataind,:,k].reshape(-1),quantiles_imp[4][:dataind,:,k].reshape(-1),
+                        color='g', alpha=0.3)
+        axes[row][col].plot(df.x, df.val, color = 'b',marker = 'o', linestyle='None', markersize=2)
+        axes[row][col].plot(df2.x,df2.val, color = 'r',marker = 'x', linestyle='None')
+
+        # Get the minimum y-value from the data
+        min_y = min(np.min(df.val), np.min(quantiles_imp[0][:dataind,:,k].reshape(-1)))
+        max_y = max(np.max(df.val), np.max(quantiles_imp[4][:dataind,:,k].reshape(-1)))
+        if min_y > 0:
+            bottom = min_y - min_y*0.1
+        else:
+            bottom = min_y + min_y*0.1
+            
+        axes[row][col].set_ylim(bottom= bottom)  # Set the y-axis lower limit
+        axes[row][col].set_ylim(top= max_y + max_y*0.1)  # Set the y-axis upper limit
+
+        # axes[row][col].lengend()
+
+        if col == 0:
+            plt.setp(axes[row, 0], ylabel='Traffic Speed (mph))')
+        if row == nrows-1:
+            plt.setp(axes[-1, col], xlabel='Time')
+
+    plt.subplots_adjust(top=0.95, bottom=0.05, left=0.05, right=0.95, hspace=0.3, wspace=0.2)
+    plt.savefig(f"{path}epoch({epoch}).png",dpi=200)
+    plt.close()
