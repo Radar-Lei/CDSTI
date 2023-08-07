@@ -46,7 +46,7 @@ class Exp_Imputation(Exp_Basic):
         """
         # actual_mask: (B,L,K)
         copy_mask = actual_mask.clone()
-        _, dim_K, _ = copy_mask.shape
+        _, _, dim_K = copy_mask.shape
         available_features = [i for i in range(dim_K) if i not in reserve_indices]
         # every time randomly
         selected_features = np.random.choice(available_features, round(len(available_features) * missing_rate), replace=False)
@@ -121,7 +121,7 @@ class Exp_Imputation(Exp_Basic):
                 actual_mask = actual_mask.to(self.device)
                 # target mask should be compute before actula_mask * mask
                 target_mask = actual_mask - mask
-                target_mask[target_mask <0] = 0
+
                 mask = actual_mask * mask # here is actully the obs_mask
 
                 # outputs is of shape (B, n_samples, L_hist, K)
@@ -269,12 +269,13 @@ class Exp_Imputation(Exp_Basic):
 
             self.model.train()
             epoch_time = time.time()
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark, actual_mask, _) in enumerate(train_loader):
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark, actual_mask, _, weight_A) in enumerate(train_loader):
                 iter_count += 1
                 model_optim.zero_grad()
 
                 batch_x = batch_x.float().to(self.device)
                 batch_x_mark = batch_x_mark.float().to(self.device)
+                weight_A = weight_A.float().to(self.device)
 
                 if self.args.missing_pattern == 'rm':
                     # random mask
@@ -287,14 +288,15 @@ class Exp_Imputation(Exp_Basic):
                     actual_mask[:,:,reserve_indices] = 0
                     mask = self._sm_mask_generator(actual_mask, reserve_indices, self.args.missing_rate)
 
+                # set_1 = set(np.all(mask == 0, axis=1).nonzero()[1])
                 mask = mask.to(self.device)
                 actual_mask = actual_mask.to(self.device)
                 target_mask = actual_mask - mask # before actual_mask * mask
-                target_mask[target_mask <0] = 0
+                
                 mask = actual_mask * mask
                 
                 # remember that in the forward process, we compute the loss between the predicted noise nad the actual noise
-                outputs, curr_noise = self.model(batch_x, batch_x_mark, None, None, mask, target_mask)
+                outputs, curr_noise = self.model(batch_x, batch_x_mark, None, None, mask, target_mask, weight_A)
 
                 f_dim = 0
                 # outputs is of shape (B, L_hist, K)
@@ -323,7 +325,7 @@ class Exp_Imputation(Exp_Basic):
                 test_rmse, test_mape, test_crps = self.vali(test_data, test_loader, reserve_indices, epoch+1)
 
                 print("Epoch: {0}, eval cost time: {1:.2f} Train Loss: {2:.2f}| Vali RMES: {3:.2f} MAPE: {4:.2f} CRPS: {5:.2f} | Test RMSE: {6:.2f} MAPE: {7:.2f} CRPS: {8:.2f} ".format(
-                    epoch + 1, time.time()-curr_epoch_time, vali_rmse, vali_mape, vali_crps, test_rmse, test_mape, test_crps))
+                    epoch + 1, time.time()-curr_epoch_time, train_loss, vali_rmse, vali_mape, vali_crps, test_rmse, test_mape, test_crps))
                 early_stopping(vali_rmse, self.model, path)
                 if early_stopping.early_stop:
                     print("Early stopping")

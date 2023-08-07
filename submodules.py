@@ -159,6 +159,7 @@ class DataEmbedding(nn.Module):
 
         self.cond_value_embedding = TokenEmbedding(c_in=c_in, d_model=d_model)
         self.noisy_value_embedding = TokenEmbedding(c_in=c_in, d_model=d_model)
+        self.spa_value_embedding = TokenEmbedding(c_in=c_in * c_in, d_model=d_model)
         self.position_embedding = PositionalEmbedding(d_model=d_model)
         self.temporal_embedding = TemporalEmbedding(d_model=d_model, embed_type=embed_type,
                                                     freq=freq) if embed_type != 'timeF' else TimeFeatureEmbedding(
@@ -170,8 +171,9 @@ class DataEmbedding(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
         self.d_model = d_model
 
-    def forward(self, cond_obs, noisy_target, x_mark, diff_step):
+    def forward(self, cond_obs, noisy_target, x_mark, diff_step, weight_A):
         B, L_hist, K = cond_obs.shape
+        # weight_A is of shape (B, K, K)
 
 
         # fea_pos = np.arange(10).repeat(int(K/10))
@@ -202,6 +204,13 @@ class DataEmbedding(nn.Module):
         else:
             x_cond = self.cond_value_embedding(cond_obs) + tem_embedding + cond_pos_embedding + diff_step_embedding
             x_noisy = self.noisy_value_embedding(noisy_target) + tem_embedding + noisy_pos_embedding + diff_step_embedding
+
+        if weight_A is not None:
+            # (B, K, K) -> (B, 1, K, K) -> (B, L_hist, K, K) -> (B, L_hist, K*K)
+            weight_A = weight_A.unsqueeze(1).expand([B, L_hist, K, K]).reshape(B, L_hist, K*K)   
+            # (B, L_hist, K*K) -> (B, L_hist, d_model)       
+            x_cond = x_cond +  self.spa_value_embedding(weight_A)
+            x_noisy = x_noisy + self.spa_value_embedding(weight_A)
         
         # x is of shape (B, L_hist, 2*d_model)
         x = torch.cat([x_cond, x_noisy], dim=-1)

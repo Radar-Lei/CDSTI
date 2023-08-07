@@ -107,7 +107,7 @@ class Model(nn.Module):
         self.projection = nn.Linear(configs.d_model * 2, configs.c_out, bias=True)
 
 
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None, target_mask=None):
+    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None, target_mask=None, weight_A=None):
         B,L,K = x_enc.shape
 
         t = torch.randint(0, self.configs.diff_steps, [B]).to(self.configs.gpu)
@@ -122,7 +122,7 @@ class Model(nn.Module):
         
         # embedding # enc_out is of shape (B, L_hist, 2*d_model)
         # also embedding diffusion step t of shape ([B])
-        enc_out = self.enc_embedding(cond_obs, noisy_target, x_mark_enc, t)
+        enc_out = self.enc_embedding(cond_obs, noisy_target, x_mark_enc, t, weight_A)
 
         for i in range(self.layer):
             enc_out = self.layer_norm(self.model[i](enc_out))

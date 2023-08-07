@@ -54,8 +54,8 @@ parser.add_argument('--d_layers', type=int, default=1, help='num of decoder laye
 parser.add_argument('--enc_in', type=int, default=228, help='encoder input size') # dim of feature/ num of nodes
 parser.add_argument('--dec_in', type=int, default=228, help='decoder input size')
 parser.add_argument('--c_out', type=int, default=228, help='output size')
-parser.add_argument('--d_model', type=int, default=128, help='dimension of model') # 
-parser.add_argument('--d_ff', type=int, default=64, help='dimension of fcn') # FC network, should be half of d_model
+parser.add_argument('--d_model', type=int, default=64, help='dimension of model') # should be half of d_ff
+parser.add_argument('--d_ff', type=int, default=128, help='dimension of fcn') # FC network, 
 parser.add_argument('--top_k', type=int, default=5, help='for TimesBlock') # 5
 parser.add_argument('--num_kernels', type=int, default=6, help='for Inception') # 6
 parser.add_argument('--embed', type=str, default='timeF',
@@ -64,10 +64,10 @@ parser.add_argument('--dropout', type=float, default=0.1, help='dropout')
 
 # diffusion
 parser.add_argument('--diff_schedule', type=str, default='quad', help='schedule for diffusion, options:[quad, linear]')
-parser.add_argument('--diff_steps', type=int, default=100, help='num of diffusion steps')
+parser.add_argument('--diff_steps', type=int, default=300, help='num of diffusion steps')
 parser.add_argument('--diff_samples', type=int, default=16, help='num of diffusion samples')
 parser.add_argument('--beta_start', type=float, default=0.0001, help='start beta for diffusion, 0.0001')
-parser.add_argument('--beta_end', type=float, default=0.02, help='end beta for diffusion, 0.1, 0.2, 0.3, 0.4')
+parser.add_argument('--beta_end', type=float, default=0.01, help='end beta for diffusion, 0.1, 0.2, 0.3, 0.4')
 parser.add_argument('--sampling_shrink_interval', type=int, default=4, help='shrink interval for sampling')
 
 
@@ -76,7 +76,7 @@ parser.add_argument('--des', type=str, default='Exp', help='exp description')
 parser.add_argument('--itr', type=int, default=1, help='experiments times') # num of experiments
 parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
 parser.add_argument('--patience', type=int, default=10, help='early stopping patience')
-parser.add_argument('--learning_rate', type=float, default=0.0005, help='optimizer learning rate')
+parser.add_argument('--learning_rate', type=float, default=0.001, help='optimizer learning rate')
 parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
 parser.add_argument('--train_epochs', type=int, default=500, help='train epochs')
 

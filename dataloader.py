@@ -82,6 +82,10 @@ class Dataset_Custom(Dataset):
             datetime_range = datetime_range[datetime_range.to_series().dt.weekday < 5]            
             df_raw['date'] = datetime_range
 
+            weighted_A = pd.read_csv(os.path.join(self.root_path, 'PeMSD7_W_228.csv'), header=None).values
+            weight_A_norm = (weighted_A - weighted_A.mean()) / weighted_A.std()
+            self.weight_A = weight_A_norm
+
             self.num_day = 44 # only weekdays
         # df_raw[df_raw == 0] = np.nan
         # df_raw.fillna(method='ffill', inplace=True)
@@ -263,9 +267,9 @@ class Dataset_Custom(Dataset):
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
         if self.set_type != 3:
-            return seq_x, seq_y, seq_x_mark, seq_y_mark, self.mask[s_begin:s_end], self.mask[r_begin:r_end]
+            return seq_x, seq_y, seq_x_mark, seq_y_mark, self.mask[s_begin:s_end], self.mask[r_begin:r_end], self.weight_A
         else:
-            return seq_x, seq_y, seq_x_mark, seq_y_mark, 0, 0
+            return seq_x, seq_y, seq_x_mark, seq_y_mark, 0, 0, self.weight_A
 
     def __len__(self):
         if self.set_type == 0:
