@@ -1,7 +1,12 @@
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import numpy as np 
 import torch
 import pandas as pd
+
+mpl.rcParams['pdf.fonttype'] = 42
+mpl.rcParams['ps.fonttype'] = 42
+mpl.rcParams['svg.fonttype'] = 'none'
 
 def get_quantile(samples,q,dim=1):
     return torch.quantile(samples,q,dim=dim).cpu().numpy()
@@ -227,7 +232,7 @@ def plot_subplots_concat(
     fig.legend(handles, labels, loc='upper center', ncol=3, markerscale=3)
 
     plt.subplots_adjust(top=0.90, bottom=0.10, left=0.10, right=0.95, hspace=0.3, wspace=0.2)
-    plt.savefig(f"{path}{fig_count}_epoch({epoch}).png",dpi=200)
+    plt.savefig(f"{path}{fig_count}_epoch({epoch}).svg")
     plt.close()
 
 def plot_subplots_compare(
@@ -358,5 +363,5 @@ def plot_subplots_compare(
     fig.legend(handles, labels, loc='upper center', ncol=5, markerscale=3)
 
     plt.subplots_adjust(top=0.90, bottom=0.10, left=0.10, right=0.95, hspace=0.3, wspace=0.2)
-    plt.savefig(f"{path}{fig_count}_epoch({epoch}).png",dpi=200)
+    plt.savefig(f"{path}{fig_count}_epoch({epoch}).svg")
     plt.close()
