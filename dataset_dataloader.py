@@ -21,11 +21,11 @@ class Get_Dataset(Dataset):
         """
         self.spatial_inp = None
         if dataset_name == "PeMS7_V_228":
-            path = "./dataset/PeMS7/" + "PeMSD7_V_228.csv"
+            path = "./dataset/PeMS7_228/" + "PeMSD7_V_228.csv"
             data_arr = pd.read_csv(path, header=None).values # (D*L_d, K)
             date_range = pd.date_range(start='2012-05-01', end='2012-06-30', freq='D')
             
-            path = "./dataset/PeMS7/" + "PeMSD7_W_228.csv"
+            path = "./dataset/PeMS7_228/" + "PeMSD7_W_228.csv"
             weight_A = pd.read_csv(path, header=None).values # (K, K) weighted adjacency matrix
             weight_A_norm = (weight_A - weight_A.mean()) / weight_A.std()
             self.spatial_inp = weight_A_norm
@@ -36,11 +36,11 @@ class Get_Dataset(Dataset):
 
             data_mat = np.reshape(data_arr, (len(dow_arr), L_d, -1)).transpose(2, 1, 0) # (K, L_d, D)
         elif dataset_name == "PeMS7_V_1026":
-            path = "./dataset/PeMS7/" + "PeMSD7_V_1026.csv"
+            path = "./dataset/PeMS7_1026/" + "PeMSD7_V_1026.csv"
             data_arr = pd.read_csv(path, header=None).values # (D*L_d, K)
             date_range = pd.date_range(start='2012-05-01', end='2012-06-30', freq='D')
             
-            path = "./dataset/PeMS7/" + "PeMSD7_W_1026.csv"
+            path = "./dataset/PeMS7_1026/" + "PeMSD7_W_1026.csv"
             weight_A = pd.read_csv(path, header=None).values # (K, K) weighted adjacency matrix
             weight_A_norm = (weight_A - weight_A.mean()) / weight_A.std()
             self.spatial_inp = weight_A_norm

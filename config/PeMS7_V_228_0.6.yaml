@@ -3,16 +3,16 @@
 # vice versa, e.g., num_steps=1000, beta_end=0.002
 
 train:
-  epochs: 1200
+  epochs: 600
   batch_size: 16
-  lr: 3.0e-3
+  lr: 1.0e-3
   nsample: 100
   test_sample_num: 32 # num of samples for one day is toddim / sequence_length, here 32 are two days
   daily_num_samples: 16
   
 diffusion:
   layers: 2
-  channels: 64 # d_model for Transformer
+  channels: 128 # d_model for Transformer
   nheads: 4
   diffusion_embedding_dim: 32 # dim for embedding of diffusion step
   beta_start: 0.0001
@@ -24,8 +24,8 @@ model:
   device: "cuda:0"
   timeemb: 32
   featureemb: 32
-  missing_pattern: "RSM"
-  missing_rate: 0.1
+  missing_pattern: "NRSM"
+  missing_rate: 0.6
   sequence_length: 18
   toddim: 288
   dowemb: 32
