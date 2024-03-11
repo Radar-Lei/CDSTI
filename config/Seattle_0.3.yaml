@@ -3,9 +3,9 @@
 # proportion of sensor-free nodes is 30%
 
 train:
-  epochs: 10
-  batch_size: 16
-  lr: 3.0e-3
+  epochs: 100
+  batch_size: 32
+  lr: 5.0e-3
   nsample: 100
   test_sample_num: 32 # num of samples for one day is toddim / sequence_length, here 32 are two days
   daily_num_samples: 16

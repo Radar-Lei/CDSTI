@@ -3,16 +3,16 @@
 # proportion of sensor-free nodes is 60%
 
 train:
-  epochs: 10
-  batch_size: 16
-  lr: 3.0e-3
+  epochs: 100
+  batch_size: 8
+  lr: 1.0e-3
   nsample: 100
   test_sample_num: 32 # num of samples for one day is toddim / sequence_length, here 32 are two days
   daily_num_samples: 16
   
 diffusion:
   layers: 2
-  channels: 64
+  channels: 128
   nheads: 4
   diffusion_embedding_dim: 32
   beta_start: 0.0001
@@ -26,7 +26,7 @@ model:
   featureemb: 32
   missing_pattern: "RSM"
   missing_rate: 0.6
-  sequence_length: 18
+  sequence_length: 36
   toddim: 288
   dowemb: 32
   todemb: 32

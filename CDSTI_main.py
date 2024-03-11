@@ -193,6 +193,7 @@ class CDSTI_base(nn.Module):
         all_zero_indices = np.unique(torch.all(actual_mask == 0, dim=2).nonzero()[:, 1].cpu().numpy())
         _, dim_K, _ = copy_mask.shape
         available_features = [i for i in range(dim_K) if i not in all_zero_indices]
+        np.random.seed(None)
         selected_features = np.random.choice(available_features, round(len(available_features) * missing_rate), replace=False)
         copy_mask[:, selected_features, :] = 0
 

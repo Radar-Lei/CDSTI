@@ -1,0 +1,93 @@
+20240311_202754
+model folder: ./save/Seattle_20240311_202754_missing_pattern(RSM)_misssing_rate(0.3)/
+{
+    "train": {
+        "epochs": 100,
+        "batch_size": 32,
+        "lr": 0.005,
+        "nsample": 100,
+        "test_sample_num": 16,
+        "daily_num_samples": 16
+    },
+    "diffusion": {
+        "layers": 2,
+        "channels": 32,
+        "nheads": 4,
+        "diffusion_embedding_dim": 32,
+        "beta_start": 0.0001,
+        "beta_end": 0.2,
+        "num_steps": 100,
+        "schedule": "quad",
+        "spatial_dim": 323
+    },
+    "model": {
+        "device": "cuda:0",
+        "timeemb": 32,
+        "featureemb": 32,
+        "missing_pattern": "RSM",
+        "missing_rate": 0.3,
+        "sequence_length": 18,
+        "toddim": 288,
+        "dowemb": 32,
+        "todemb": 32,
+        "save_folder": "",
+        "sampling_shrink_interval": 4
+    }
+}
+Number of parameters in current model: 105697
+  0%|          | 0/183 [00:00<?, ?it/s] 17%|█▋        | 32/183 [00:10<00:47,  3.16it/s, avg_epoch_training_loss=0.57, epoch=0] 39%|███▉      | 72/183 [00:20<00:30,  3.60it/s, avg_epoch_training_loss=0.436, epoch=0] 61%|██████    | 112/183 [00:30<00:18,  3.76it/s, avg_epoch_training_loss=0.386, epoch=0] 83%|████████▎ | 152/183 [00:40<00:08,  3.85it/s, avg_epoch_training_loss=0.361, epoch=0]100%|██████████| 183/183 [00:48<00:00,  3.79it/s, avg_epoch_training_loss=0.347, epoch=0]
+  0%|          | 0/183 [00:00<?, ?it/s] 22%|██▏       | 40/183 [00:10<00:36,  3.92it/s, avg_epoch_training_loss=0.259, epoch=1] 44%|████▎     | 80/183 [00:20<00:26,  3.93it/s, avg_epoch_training_loss=0.259, epoch=1] 66%|██████▌   | 120/183 [00:31<00:16,  3.84it/s, avg_epoch_training_loss=0.26, epoch=1] 87%|████████▋ | 160/183 [00:41<00:05,  3.88it/s, avg_epoch_training_loss=0.261, epoch=1]100%|██████████| 183/183 [00:46<00:00,  3.90it/s, avg_epoch_training_loss=0.261, epoch=1]
+  0%|          | 0/183 [00:00<?, ?it/s] 22%|██▏       | 40/183 [00:10<00:36,  3.93it/s, avg_epoch_training_loss=0.255, epoch=2] 44%|████▎     | 80/183 [00:20<00:26,  3.93it/s, avg_epoch_training_loss=0.251, epoch=2] 66%|██████▌   | 120/183 [00:30<00:16,  3.90it/s, avg_epoch_training_loss=0.251, epoch=2] 87%|████████▋ | 160/183 [00:40<00:05,  3.91it/s, avg_epoch_training_loss=0.248, epoch=2]100%|██████████| 183/183 [00:46<00:00,  3.93it/s, avg_epoch_training_loss=0.245, epoch=2]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██        | 38/183 [00:10<00:38,  3.78it/s, avg_epoch_training_loss=0.263, epoch=3] 43%|████▎     | 78/183 [00:20<00:27,  3.87it/s, avg_epoch_training_loss=0.267, epoch=3] 64%|██████▍   | 118/183 [00:30<00:16,  3.90it/s, avg_epoch_training_loss=0.255, epoch=3] 86%|████████▋ | 158/183 [00:40<00:06,  3.91it/s, avg_epoch_training_loss=0.252, epoch=3]100%|██████████| 183/183 [00:46<00:00,  3.91it/s, avg_epoch_training_loss=0.25, epoch=3] 
+  0%|          | 0/183 [00:00<?, ?it/s] 22%|██▏       | 40/183 [00:10<00:36,  3.94it/s, avg_epoch_training_loss=0.23, epoch=4] 44%|████▎     | 80/183 [00:20<00:26,  3.94it/s, avg_epoch_training_loss=0.232, epoch=4] 66%|██████▌   | 120/183 [00:30<00:16,  3.90it/s, avg_epoch_training_loss=0.231, epoch=4] 87%|████████▋ | 159/183 [00:41<00:06,  3.85it/s, avg_epoch_training_loss=0.234, epoch=4]100%|██████████| 183/183 [00:47<00:00,  3.89it/s, avg_epoch_training_loss=0.237, epoch=4]
+  0%|          | 0/183 [00:00<?, ?it/s] 22%|██▏       | 40/183 [00:10<00:36,  3.95it/s, avg_epoch_training_loss=0.227, epoch=5] 44%|████▎     | 80/183 [00:20<00:26,  3.95it/s, avg_epoch_training_loss=0.231, epoch=5] 66%|██████▌   | 120/183 [00:30<00:15,  3.94it/s, avg_epoch_training_loss=0.234, epoch=5] 87%|████████▋ | 160/183 [00:40<00:05,  3.89it/s, avg_epoch_training_loss=0.235, epoch=5]100%|██████████| 183/183 [00:47<00:00,  3.89it/s, avg_epoch_training_loss=0.236, epoch=5]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██▏       | 39/183 [00:10<00:37,  3.85it/s, avg_epoch_training_loss=0.224, epoch=6] 43%|████▎     | 78/183 [00:20<00:27,  3.81it/s, avg_epoch_training_loss=0.231, epoch=6] 64%|██████▍   | 117/183 [00:30<00:17,  3.80it/s, avg_epoch_training_loss=0.231, epoch=6] 85%|████████▌ | 156/183 [00:40<00:07,  3.81it/s, avg_epoch_training_loss=0.229, epoch=6]100%|██████████| 183/183 [00:47<00:00,  3.81it/s, avg_epoch_training_loss=0.229, epoch=6]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██▏       | 39/183 [00:10<00:37,  3.87it/s, avg_epoch_training_loss=0.213, epoch=7] 43%|████▎     | 79/183 [00:20<00:26,  3.89it/s, avg_epoch_training_loss=0.22, epoch=7]  65%|██████▌   | 119/183 [00:30<00:16,  3.90it/s, avg_epoch_training_loss=0.224, epoch=7] 87%|████████▋ | 159/183 [00:40<00:06,  3.91it/s, avg_epoch_training_loss=0.224, epoch=7]100%|██████████| 183/183 [00:46<00:00,  3.91it/s, avg_epoch_training_loss=0.221, epoch=7]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██▏       | 39/183 [00:10<00:37,  3.89it/s, avg_epoch_training_loss=0.218, epoch=8] 43%|████▎     | 79/183 [00:20<00:26,  3.90it/s, avg_epoch_training_loss=0.215, epoch=8] 64%|██████▍   | 118/183 [00:30<00:16,  3.90it/s, avg_epoch_training_loss=0.216, epoch=8] 86%|████████▌ | 157/183 [00:40<00:06,  3.81it/s, avg_epoch_training_loss=0.22, epoch=8] 100%|██████████| 183/183 [00:47<00:00,  3.81it/s, avg_epoch_training_loss=0.22, epoch=8]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██        | 38/183 [00:10<00:38,  3.73it/s, avg_epoch_training_loss=0.204, epoch=9] 42%|████▏     | 76/183 [00:20<00:28,  3.74it/s, avg_epoch_training_loss=0.211, epoch=9] 63%|██████▎   | 116/183 [00:30<00:17,  3.82it/s, avg_epoch_training_loss=0.214, epoch=9] 85%|████████▍ | 155/183 [00:40<00:07,  3.83it/s, avg_epoch_training_loss=0.212, epoch=9]100%|██████████| 183/183 [00:47<00:00,  3.82it/s, avg_epoch_training_loss=0.213, epoch=9]
+  0%|          | 0/1 [00:00<?, ?it/s]  0%|          | 0/1 [01:15<?, ?it/s, rmse_total=3.14, mae_total=2.07, mape_total=3.53, batch_no=1]100%|██████████| 1/1 [01:15<00:00, 75.38s/it, rmse_total=3.14, mae_total=2.07, mape_total=3.53, batch_no=1]100%|██████████| 1/1 [01:15<00:00, 75.38s/it, rmse_total=3.14, mae_total=2.07, mape_total=3.53, batch_no=1]
+RMSE: 3.139759318397315
+MAE: 2.0741243657377577
+MAPE: 3.5300592376604114
+CRPS: 0.025213219617542467
+
+Indices of nodes with missing values: [  1  21  24  25  26  32  33  36  39  42  43  50  52  59  63  64  65  66
+  73  75  79  80  82  92  94  96 108 110 111 112 113 115 116 117 118 120
+ 121 126 127 130 131 132 133 135 136 137 139 150 153 157 162 165 166 168
+ 170 173 177 185 186 190 195 196 197 198 202 206 212 224 237 238 243 249
+ 250 252 253 255 264 266 269 271 278 284 285 290 291 293 294 299 305 310
+ 311 313 315 317 319 320 322]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██▏       | 39/183 [00:10<00:37,  3.88it/s, avg_epoch_training_loss=0.207, epoch=10] 43%|████▎     | 78/183 [00:20<00:27,  3.86it/s, avg_epoch_training_loss=0.21, epoch=10]  64%|██████▍   | 117/183 [00:30<00:17,  3.85it/s, avg_epoch_training_loss=0.212, epoch=10] 85%|████████▌ | 156/183 [00:40<00:07,  3.86it/s, avg_epoch_training_loss=0.212, epoch=10]100%|██████████| 183/183 [00:47<00:00,  3.86it/s, avg_epoch_training_loss=0.209, epoch=10]
+  0%|          | 0/183 [00:00<?, ?it/s] 20%|██        | 37/183 [00:10<00:39,  3.67it/s, avg_epoch_training_loss=0.198, epoch=11] 42%|████▏     | 76/183 [00:20<00:28,  3.78it/s, avg_epoch_training_loss=0.204, epoch=11] 62%|██████▏   | 114/183 [00:30<00:18,  3.79it/s, avg_epoch_training_loss=0.21, epoch=11] 84%|████████▍ | 154/183 [00:40<00:07,  3.84it/s, avg_epoch_training_loss=0.218, epoch=11]100%|██████████| 183/183 [00:47<00:00,  3.82it/s, avg_epoch_training_loss=0.217, epoch=11]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██▏       | 39/183 [00:10<00:37,  3.86it/s, avg_epoch_training_loss=0.196, epoch=12] 43%|████▎     | 78/183 [00:20<00:27,  3.82it/s, avg_epoch_training_loss=0.21, epoch=12]  64%|██████▍   | 118/183 [00:30<00:16,  3.87it/s, avg_epoch_training_loss=0.212, epoch=12] 86%|████████▌ | 157/183 [00:40<00:06,  3.86it/s, avg_epoch_training_loss=0.215, epoch=12]100%|██████████| 183/183 [00:47<00:00,  3.86it/s, avg_epoch_training_loss=0.215, epoch=12]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██▏       | 39/183 [00:10<00:37,  3.85it/s, avg_epoch_training_loss=0.212, epoch=13] 43%|████▎     | 78/183 [00:20<00:27,  3.85it/s, avg_epoch_training_loss=0.213, epoch=13] 64%|██████▍   | 117/183 [00:30<00:17,  3.82it/s, avg_epoch_training_loss=0.214, epoch=13] 86%|████████▌ | 157/183 [00:40<00:06,  3.88it/s, avg_epoch_training_loss=0.213, epoch=13]100%|██████████| 183/183 [00:47<00:00,  3.89it/s, avg_epoch_training_loss=0.214, epoch=13]
+  0%|          | 0/183 [00:00<?, ?it/s] 22%|██▏       | 40/183 [00:10<00:35,  3.98it/s, avg_epoch_training_loss=0.206, epoch=14] 44%|████▎     | 80/183 [00:20<00:25,  3.98it/s, avg_epoch_training_loss=0.204, epoch=14] 66%|██████▌   | 120/183 [00:30<00:15,  3.98it/s, avg_epoch_training_loss=0.207, epoch=14] 87%|████████▋ | 160/183 [00:40<00:05,  3.98it/s, avg_epoch_training_loss=0.207, epoch=14]100%|██████████| 183/183 [00:45<00:00,  3.99it/s, avg_epoch_training_loss=0.207, epoch=14]
+  0%|          | 0/183 [00:00<?, ?it/s] 22%|██▏       | 40/183 [00:10<00:35,  3.98it/s, avg_epoch_training_loss=0.21, epoch=15] 44%|████▎     | 80/183 [00:20<00:25,  3.98it/s, avg_epoch_training_loss=0.216, epoch=15] 66%|██████▌   | 120/183 [00:30<00:15,  3.98it/s, avg_epoch_training_loss=0.213, epoch=15] 87%|████████▋ | 160/183 [00:40<00:05,  3.98it/s, avg_epoch_training_loss=0.211, epoch=15]100%|██████████| 183/183 [00:45<00:00,  3.99it/s, avg_epoch_training_loss=0.21, epoch=15] 
+  0%|          | 0/183 [00:00<?, ?it/s] 22%|██▏       | 40/183 [00:10<00:35,  3.99it/s, avg_epoch_training_loss=0.21, epoch=16] 44%|████▎     | 80/183 [00:20<00:25,  3.98it/s, avg_epoch_training_loss=0.222, epoch=16] 66%|██████▌   | 120/183 [00:30<00:15,  3.97it/s, avg_epoch_training_loss=0.217, epoch=16] 87%|████████▋ | 160/183 [00:40<00:05,  3.97it/s, avg_epoch_training_loss=0.216, epoch=16]100%|██████████| 183/183 [00:45<00:00,  3.98it/s, avg_epoch_training_loss=0.217, epoch=16]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██▏       | 39/183 [00:10<00:37,  3.87it/s, avg_epoch_training_loss=0.226, epoch=17] 43%|████▎     | 78/183 [00:20<00:27,  3.83it/s, avg_epoch_training_loss=0.222, epoch=17] 64%|██████▍   | 117/183 [00:30<00:17,  3.78it/s, avg_epoch_training_loss=0.22, epoch=17] 85%|████████▌ | 156/183 [00:40<00:07,  3.82it/s, avg_epoch_training_loss=0.216, epoch=17]100%|██████████| 183/183 [00:47<00:00,  3.84it/s, avg_epoch_training_loss=0.217, epoch=17]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██        | 38/183 [00:10<00:38,  3.76it/s, avg_epoch_training_loss=0.195, epoch=18] 42%|████▏     | 76/183 [00:21<00:29,  3.57it/s, avg_epoch_training_loss=0.203, epoch=18] 63%|██████▎   | 115/183 [00:31<00:18,  3.68it/s, avg_epoch_training_loss=0.208, epoch=18] 85%|████████▍ | 155/183 [00:41<00:07,  3.77it/s, avg_epoch_training_loss=0.208, epoch=18]100%|██████████| 183/183 [00:48<00:00,  3.76it/s, avg_epoch_training_loss=0.208, epoch=18]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██▏       | 39/183 [00:10<00:37,  3.89it/s, avg_epoch_training_loss=0.208, epoch=19] 43%|████▎     | 78/183 [00:20<00:27,  3.76it/s, avg_epoch_training_loss=0.203, epoch=19] 64%|██████▍   | 117/183 [00:30<00:17,  3.81it/s, avg_epoch_training_loss=0.211, epoch=19] 85%|████████▌ | 156/183 [00:40<00:07,  3.84it/s, avg_epoch_training_loss=0.212, epoch=19]100%|██████████| 183/183 [00:47<00:00,  3.84it/s, avg_epoch_training_loss=0.213, epoch=19]
+  0%|          | 0/1 [00:00<?, ?it/s]  0%|          | 0/1 [01:14<?, ?it/s, rmse_total=2.94, mae_total=1.94, mape_total=3.29, batch_no=1]100%|██████████| 1/1 [01:14<00:00, 74.72s/it, rmse_total=2.94, mae_total=1.94, mape_total=3.29, batch_no=1]100%|██████████| 1/1 [01:14<00:00, 74.72s/it, rmse_total=2.94, mae_total=1.94, mape_total=3.29, batch_no=1]
+RMSE: 2.9447762573336558
+MAE: 1.9380165266144043
+MAPE: 3.2862843516766
+CRPS: 0.023620533315758956
+
+Indices of nodes with missing values: [  1  21  24  25  26  32  33  36  39  42  43  50  52  59  63  64  65  66
+  73  75  79  80  82  92  94  96 108 110 111 112 113 115 116 117 118 120
+ 121 126 127 130 131 132 133 135 136 137 139 150 153 157 162 165 166 168
+ 170 173 177 185 186 190 195 196 197 198 202 206 212 224 237 238 243 249
+ 250 252 253 255 264 266 269 271 278 284 285 290 291 293 294 299 305 310
+ 311 313 315 317 319 320 322]
+  0%|          | 0/183 [00:00<?, ?it/s] 21%|██        | 38/183 [00:10<00:38,  3.77it/s, avg_epoch_training_loss=0.211, epoch=20] 43%|████▎     | 78/183 [00:20<00:27,  3.89it/s, avg_epoch_training_loss=0.21, epoch=20]  64%|██████▍   | 118/183 [00:30<00:16,  3.93it/s, avg_epoch_training_loss=0.211, epoch=20] 86%|████████▋ | 158/183 [00:40<00:06,  3.95it/s, avg_epoch_training_loss=0.214, epoch=20]100%|██████████| 183/183 [00:46<00:00,  3.93it/s, avg_epoch_training_loss=0.214, epoch=20]
+  0%|          | 0/183 [00:00<?, ?it/s] 22%|██▏       | 40/183 [00:10<00:35,  3.98it/s, avg_epoch_training_loss=0.214, epoch=21] 44%|████▎     | 80/183 [00:20<00:25,  3.97it/s, avg_epoch_training_loss=0.207, epoch=21] 66%|██████▌   | 120/183 [00:30<00:15,  3.97it/s, avg_epoch_training_loss=0.21, epoch=21] 87%|████████▋ | 160/183 [00:41<00:05,  3.85it/s, avg_epoch_training_loss=0.208, epoch=21]100%|██████████| 183/183 [00:47<00:00,  3.88it/s, avg_epoch_training_loss=0.209, epoch=21]
+  0%|          | 0/183 [00:00<?, ?it/s] 22%|██▏       | 40/183 [00:10<00:36,  3.94it/s, avg_epoch_training_loss=0.199, epoch=22] 44%|████▎     | 80/183 [00:20<00:26,  3.93it/s, avg_epoch_training_loss=0.202, epoch=22] 66%|██████▌   | 120/183 [00:30<00:15,  3.94it/s, avg_epoch_training_loss=0.207, epoch=22] 87%|████████▋ | 160/183 [00:40<00:05,  3.94it/s, avg_epoch_training_loss=0.205, epoch=22]100%|██████████| 183/183 [00:46<00:00,  3.95it/s, avg_epoch_training_loss=0.206, epoch=22]
+  0%|          | 0/183 [00:00<?, ?it/s] 22%|██▏       | 40/183 [00:10<00:36,  3.96it/s, avg_epoch_training_loss=0.203, epoch=23] 44%|████▎     | 80/183 [00:20<00:25,  3.97it/s, avg_epoch_training_loss=0.206, epoch=23] 66%|██████▌   | 120/183 [00:30<00:15,  3.98it/s, avg_epoch_training_loss=0.206, epoch=23] 87%|████████▋ | 160/183 [00:40<00:05,  3.98it/s, avg_epoch_training_loss=0.208, epoch=23]100%|██████████| 183/183 [00:45<00:00,  3.99it/s, avg_epoch_training_loss=0.207, epoch=23]
+  0%|          | 0/183 [00:00<?, ?it/s] 22%|██▏       | 40/183 [00:10<00:35,  3.98it/s, avg_epoch_training_loss=0.209, epoch=24] 44%|████▎     | 80/183 [00:20<00:25,  3.98it/s, avg_epoch_training_loss=0.208, epoch=24] 50%|████▉     | 91/183 [00:23<00:23,  3.90it/s, avg_epoch_training_loss=0.209, epoch=24]
+Traceback (most recent call last):
+  File "/home/radar/CDSTI/experiments.py", line 123, in <module>
+    train(
+  File "/home/radar/CDSTI/utils.py", line 72, in train
+    avg_loss += loss.item()
+                ^^^^^^^^^^^
+KeyboardInterrupt

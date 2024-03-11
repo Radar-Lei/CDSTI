@@ -63,7 +63,7 @@ def train(
         This can help reduce the frequency of refreshing the progress bar, 
         which may be useful in cases where refreshing too frequently could slow down the overall execution of the loop.
         """
-        with tqdm(train_loader, mininterval=2.0, maxinterval=50.0) as it:
+        with tqdm(train_loader, mininterval=10.0, maxinterval=50.0) as it:
             for batch_no, train_batch in enumerate(it, start=1):
                 optimizer.zero_grad()
 
@@ -82,7 +82,8 @@ def train(
             # lr_scheduler.step()
             scheduler.step(avg_loss)
 
-        if  ((epoch_no + 1) % valid_epoch_interval == 0) or (epoch_no < 4):
+        # if  ((epoch_no + 1) % valid_epoch_interval == 0) or (epoch_no < 4):
+        if  ((epoch_no + 1) % 10 == 0):
             evaluate(
                 model,
                 test_loader,

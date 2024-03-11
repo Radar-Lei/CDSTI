@@ -3,7 +3,7 @@
 # proportion of sensor-free nodes is 75%
 
 train:
-  epochs: 10
+  epochs: 100
   batch_size: 16
   lr: 1.0e-3
   nsample: 100
@@ -12,7 +12,7 @@ train:
   
 diffusion:
   layers: 2
-  channels: 128
+  channels: 64
   nheads: 4
   diffusion_embedding_dim: 32
   beta_start: 0.0001
