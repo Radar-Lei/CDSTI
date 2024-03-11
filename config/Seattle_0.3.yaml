@@ -1,9 +1,9 @@
 
-# When num_steps is small, beta_end should be large, e.g., num_steps=100, beta_end=0.2
-# vice versa, e.g., num_steps=1000, beta_end=0.002
+#args for Seattle dataset
+# proportion of sensor-free nodes is 30%
 
 train:
-  epochs: 1200
+  epochs: 10
   batch_size: 16
   lr: 3.0e-3
   nsample: 100
@@ -12,9 +12,9 @@ train:
   
 diffusion:
   layers: 2
-  channels: 64 # d_model for Transformer
+  channels: 64
   nheads: 4
-  diffusion_embedding_dim: 32 # dim for embedding of diffusion step
+  diffusion_embedding_dim: 32
   beta_start: 0.0001
   beta_end: 0.2
   num_steps: 100

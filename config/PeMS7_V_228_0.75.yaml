@@ -1,19 +1,20 @@
 
-#args for Guangzhou dataset
+# When num_steps is small, beta_end should be large, e.g., num_steps=100, beta_end=0.2
+# vice versa, e.g., num_steps=1000, beta_end=0.002
 
 train:
-  epochs: 600
+  epochs: 800
   batch_size: 16
-  lr: 3.0e-3
+  lr: 1.0e-3
   nsample: 100
   test_sample_num: 32 # num of samples for one day is toddim / sequence_length, here 32 are two days
   daily_num_samples: 16
   
 diffusion:
   layers: 2
-  channels: 64
+  channels: 128 # d_model for Transformer
   nheads: 4
-  diffusion_embedding_dim: 32
+  diffusion_embedding_dim: 32 # dim for embedding of diffusion step
   beta_start: 0.0001
   beta_end: 0.2
   num_steps: 100
@@ -24,7 +25,7 @@ model:
   timeemb: 32
   featureemb: 32
   missing_pattern: "RSM"
-  missing_rate: 0.3
+  missing_rate: 0.75
   sequence_length: 18
   toddim: 288
   dowemb: 32

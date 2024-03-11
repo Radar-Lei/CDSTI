@@ -14,6 +14,8 @@ python experiments.py --modelfolder 'Seattle_20230521_000134_missing_pattern(RM)
 python experiments.py --dataset Guangzhou --missingpattern RM --missingrate 0.3 
 python experiments.py --dataset Portland --baseconfig Portland.yaml --missingpattern BM --missingrate 0.3 --BMblocklength 4 --seqlen 18
 python experiments.py --dataset PeMS7_V_228 --baseconfig PeMS7_V_228.yaml --missingpattern NRSM --missingrate 0.6
+
+or using bash: 
 """
 
 parser = argparse.ArgumentParser(description='Conditional Diffusion Model for Spatiotemporal Traffic Data Imputation')
