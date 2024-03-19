@@ -21,7 +21,7 @@ bash ./scripts/Seattle.sh > training_test_log.txt 2>&1
 
 parser = argparse.ArgumentParser(description='Conditional Diffusion Model for Spatiotemporal Traffic Data Imputation')
 parser.add_argument('--dataset', type=str, default='PeMS7_V_228', help='dataset name:PeMS7_V_228, PeMS7_V_1026, Hangzhou, Seattle, or Portland')
-parser.add_argument('--baseconfig', type=str, default='PeMS7_V_228.yaml', help='base config file')
+parser.add_argument('--baseconfig', type=str, default='PeMS7_V_228_0.3.yaml', help='base config file')
 
 parser.add_argument(
     '--missingpattern', 

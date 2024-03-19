@@ -21,7 +21,7 @@ diffusion:
   schedule: "quad"
 
 model:
-  device: "cuda:0"
+  device: "cuda:1"
   timeemb: 32
   featureemb: 32
   missing_pattern: "RSM"
