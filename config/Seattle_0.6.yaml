@@ -3,8 +3,8 @@
 # proportion of sensor-free nodes is 60%
 
 train:
-  epochs: 100
-  batch_size: 8
+  epochs: 800
+  batch_size: 16
   lr: 1.0e-3
   nsample: 100
   test_sample_num: 32 # num of samples for one day is toddim / sequence_length, here 32 are two days
@@ -12,7 +12,7 @@ train:
   
 diffusion:
   layers: 2
-  channels: 128
+  channels: 64
   nheads: 4
   diffusion_embedding_dim: 32
   beta_start: 0.0001

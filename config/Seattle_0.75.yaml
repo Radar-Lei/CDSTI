@@ -3,7 +3,7 @@
 # proportion of sensor-free nodes is 75%
 
 train:
-  epochs: 100
+  epochs: 800
   batch_size: 16
   lr: 1.0e-3
   nsample: 100
