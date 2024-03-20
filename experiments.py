@@ -16,7 +16,7 @@ python experiments.py --dataset Portland --baseconfig Portland.yaml --missingpat
 python experiments.py --dataset PeMS7_V_228 --baseconfig PeMS7_V_228_0.3.yaml --missingpattern NRSM --missingrate 0.6
 
 or using bash: 
-bash ./scripts/Seattle.sh > $(date +'%y%m%d-%H%M%S')Seattle_log.txt 2>&1
+bash ./scripts/Seattle.sh > $(date +'%y%m%d-%H%M%S')_Seattle_log.txt 2>&1
 """
 
 parser = argparse.ArgumentParser(description='Conditional Diffusion Model for Spatiotemporal Traffic Data Imputation')

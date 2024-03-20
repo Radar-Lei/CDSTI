@@ -4,3 +4,4 @@ save/
 __pycache__/
 *.pyc
 save_csdi/
+*.txt
